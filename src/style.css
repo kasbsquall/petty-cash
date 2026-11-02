@@ -303,3 +303,15 @@ select.campo{appearance:none;padding-right:28px;background-image:url("data:image
   .embalse > span{display:none}
   .etiqueta .quien{display:none}
 }
+
+/* the channel is drawn per payment, so a waiting one can sit anywhere in the row */
+.gotas::before,.gotas::after{display:none}
+.gota .tramo{position:absolute;left:0;right:-18px;top:-12px;height:2px;border-radius:1px;background:var(--agua)}
+.gota:last-child .tramo{right:0}
+.gota.espera .tramo{background:repeating-linear-gradient(90deg,var(--compuerta) 0 5px,transparent 5px 10px);animation:respira 2.6s ease-in-out infinite}
+.gota::before{z-index:1}
+@media (max-width:860px){
+  .gota .tramo{left:-18px;right:auto;top:5px;bottom:-14px;width:2px;height:auto}
+  .gota:last-child .tramo{bottom:0}
+  .gota.espera .tramo{background:repeating-linear-gradient(180deg,var(--compuerta) 0 5px,transparent 5px 10px)}
+}

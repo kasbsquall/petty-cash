@@ -357,9 +357,7 @@ function paintChannel() {
     return;
   }
   ol.classList.remove('sin-gotas');
-  const paidCount = shown.filter((s) => s.status === 'Paid' || councilState(s).status === 'Approved').length;
   ol.style.setProperty('--n', shown.length);
-  ol.style.setProperty('--agua-hasta', Math.min(100, paidCount / shown.length * 100 - 100 / shown.length / 2 + 4) + '%');
   ol.innerHTML = shown.map((s, k) => {
     const tx = txOf(s.id);
     const txLink = tx
@@ -374,7 +372,7 @@ function paintChannel() {
       else if (cs.status === 'Rejected') state = `<i class="ph-light ph-x-circle"></i>Council said no · #${s.proposal_id}`;
       else { waiting = true; state = `<i class="ph-light ph-hourglass-medium"></i>Council vote, ${cs.approvals} of ${needed()} · #${s.proposal_id}`; }
     }
-    return `<li class="gota ${waiting ? 'espera' : ''}" style="--k:${Math.min(k, 7)}">
+    return `<li class="gota ${waiting ? 'espera' : ''}" style="--k:${Math.min(k, 7)}"><span class="tramo" aria-hidden="true"></span>
       <span class="f num"><i class="ph-light ${waiting ? 'ph-lock-key' : 'ph-drop'}"></i>${day(s.at)} · ${esc(s.category)}</span>
       <span class="v num">${usd(dollars(s.amount))}</span>
       <span class="q" title="${esc(s.memo)}">${esc(s.memo)}</span>
