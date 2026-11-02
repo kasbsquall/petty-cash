@@ -1,0 +1,9 @@
+{
+  "name": "petty-cash",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "verify": "node scripts/verify.mjs"
+  },
+  "engines": { "node": ">=20" }
+}
