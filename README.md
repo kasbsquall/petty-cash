@@ -1,8 +1,13 @@
 # Petty Cash
 
-Budgets with rules for a Sputnik DAO on NEAR. The council approves a budget once. After that, a payment inside the budget's rules leaves the DAO in seconds, and anything outside the rules becomes a normal council vote. The money never leaves the DAO until a payment goes out.
+A community group pays $40 for pizza at its meetup. Today, if the group keeps its money in a DAO, the whole council has to vote on that $40 the same way it votes on a $40,000 grant, and the organizer waits days to be paid back.
+
+Petty Cash lets the group's council approve a budget once, with rules: who can spend, how much per payment, how much per month, on what, until when. After that, a payment inside the rules is paid from the group's treasury in seconds. Anything outside the rules goes to a normal council vote. The money stays in the treasury until a payment goes out, and the monthly spending report comes from the records.
+
+On NEAR, the treasury is a Sputnik DAO and Petty Cash is a contract the DAO installs with two ordinary proposals. A holder can be a person or an AI agent: the agent's key can only ask Petty Cash for a payment, and the rules decide the rest.
 
 - Live demo (NEAR testnet, no wallet needed): https://petty-cash-ochre.vercel.app
+- Repository: https://github.com/kasbsquall/petty-cash
 - Built at NEAR HACKATHON, 1 to 14 November 2026. Tracks: Social Money (`social`), Real-World Money (`realworld`).
 - Contract: `pettycash.testnet`. Demo DAO: `harbor-builders.sputnikv2.testnet`. Test token: `tusd-pettycash.testnet`.
 
@@ -17,7 +22,8 @@ A community DAO on Sputnik asks its council for the same vote on a $40 pizza rei
 3. A holder calls `spend`. Petty Cash checks the rules on chain.
 4. Inside the rules: Petty Cash files a `Transfer` proposal on the DAO, approves it with its role, reads the proposal back, and marks the payment `Paid` only if the DAO reports `Approved`. Sputnik sends the money from the DAO.
 5. Outside the rules: Petty Cash files the same `Transfer` proposal with the reason in its description and leaves it for the council. It is an ordinary Sputnik proposal, so the council votes on it as usual.
-6. Every payment is recorded with its category, memo and DAO proposal id, so the monthly report comes from chain data.
+6. When the council decides an escalated payment, anyone can call `settle`: Petty Cash reads the proposal and records it as paid by council vote (counted in the budget) or rejected.
+7. Every payment is recorded with its category, memo and DAO proposal id, so the monthly report comes from chain data.
 
 Petty Cash never holds the budget. The only NEAR it holds is each DAO's bond pool, which pays the proposal bonds, the token storage registration of new receivers, and the storage of that DAO's own records.
 
@@ -29,7 +35,7 @@ Open https://petty-cash-ochre.vercel.app in any browser. You act as a budget hol
 2. In "Request a payment", type `40` in Amount and `Pizza for the meetup` in "What it is for". See: the rule check turns green ("Inside the rules") with each rule ticked.
 3. Click "Pay $40 now". See, in about 3 to 5 seconds: the Meetups gate on the model opens, a green notice "Paid $40 to ... from the DAO, proposal #N" with a link to the transaction, the amount left goes down by 40, and a new payment appears in the channel at the bottom marked "Paid inside the rules".
 4. Type `600` in Amount. See: the check turns orange, "Above the $250 per-payment cap", and the button changes to "Send $600 to a council vote". Click it. See: "Above the per-payment cap. $600 stays in the DAO until 2 of 3 approve, proposal #N", and the Council votes counter goes up by one. No money moved.
-5. Open "Council votes". You act as a council member. Click "Approve" on a payment. See: "Your vote is in" signed by a demo council account, and the vote count on that payment goes up. With 2 of 3 approvals the DAO pays it and it shows as "Paid after council vote".
+5. Open "Council votes". You act as a council member. Click "Approve" on a payment. See: "Your vote is in" signed by a demo council account, and the vote count on that payment goes up. With 2 of 3 approvals the DAO pays it, the demo calls `settle`, and the payment shows as "Paid after council vote" and counts in the budget.
 6. Click "Monthly report". See: a CSV with every payment, its budget, category, receiver, status, DAO proposal id and transaction.
 
 To check any of this on an explorer, open https://testnet.nearblocks.io/address/harbor-builders.sputnikv2.testnet and look at the tUSD transfers going out of the DAO.
@@ -39,8 +45,8 @@ To check any of this on an explorer, open https://testnet.nearblocks.io/address/
 Needs Node 20 or later. No keys, no wallet.
 
 ```bash
-git clone <this repository>
-cd <repository folder>
+git clone https://github.com/kasbsquall/petty-cash
+cd petty-cash
 npm run verify
 ```
 
@@ -48,8 +54,8 @@ It reads the demo DAO and the contract from public RPC (FastNear, `https://test.
 
 - the DAO has a `pettycash` role with a single member, the contract, allowed only to add and approve transfer proposals;
 - every payment matches its DAO proposal (receiver, amount, token, proposer);
-- every payment marked paid has a proposal the DAO reports `Approved`, and every escalated payment has a proposal left for the council;
-- paid amounts stay inside the per-payment cap and the period cap.
+- every payment marked paid has a proposal the DAO reports `Approved`, every rejected one a proposal the DAO reports `Rejected`, and every escalated one a proposal left for the council;
+- payments paid inside the rules stay inside the per-payment cap and the period cap (a payment the council approved by vote may exceed them).
 
 Expected: every line starts with `PASS` and the last line ends with `0 failed`. The number of checks grows as people use the demo. To check another deployment: `node scripts/verify.mjs --contract <contract> --dao <dao>.sputnikv2.testnet`.
 
@@ -62,7 +68,7 @@ cd contract
 cargo test
 ```
 
-Expected: `test result: ok. 18 passed; 0 failed`. The tests cover a non-holder trying to spend, another DAO and a holder trying to change a budget, a paused budget, a category outside the list, the period cap counting payments still in flight, a new period resetting the spent amount, an empty bond pool, inconsistent rules, a token budget paying the receiver's storage registration from the pool, and a keeper vote that does not approve the proposal.
+Expected: `test result: ok. 24 passed; 0 failed`. The tests cover a non-holder trying to spend, another DAO and a holder trying to change a budget, a paused budget, a category outside the list, the period cap counting payments still in flight, a new period resetting the spent amount, an empty bond pool, inconsistent rules, a token budget paying the receiver's storage registration from the pool, a keeper vote that does not approve the proposal, and `settle` after a council approval, a rejection, a removal, an undecided vote and a vote in a later period.
 
 ## Install it on your own DAO (testnet)
 
@@ -92,14 +98,24 @@ The demo server holds function-call access keys, never full-access keys:
 - `harbor-ana.testnet`, `harbor-rui.testnet`, `harbor-bot.testnet` (the budget holders): only `spend` on `pettycash.testnet`.
 - `harbor-jon.testnet`, `harbor-ines.testnet` (two of the three council members): only `act_proposal` on `harbor-builders.sputnikv2.testnet`.
 
+- A second key on `harbor-jon.testnet`: only `settle` on `pettycash.testnet`.
+
 The server also refuses receivers outside a fixed list of demo accounts, amounts above 1,000 tUSD, and votes on anything other than an open `Transfer` proposal filed by Petty Cash. The `harbor-bot.testnet` holder stands for an AI agent: its key can only ask Petty Cash for a payment, and the budget rules decide the rest.
+
+This is a public demo on purpose: anyone who opens it acts as the holder and as two of the three council members, so anyone can move the demo DAO's test dollars to the demo receivers, one request at a time, with a best-effort per-visitor rate limit. It holds tUSD, a token with no value, and the seed script can refill it.
+
+## Trust model
+
+- Custody stays with the DAO. Petty Cash cannot move money by itself: it can only file a `Transfer` proposal and cast the vote of its role, and Sputnik executes the transfer.
+- At the Sputnik level, the `pettycash` role can approve any transfer of any amount. The budget rules live in the Petty Cash contract, so the code of `pettycash.testnet` is what a DAO trusts when it installs the role. A DAO can remove the role at any time with one policy proposal.
+- Who can change that code: today `pettycash.testnet` still has a full-access key held by the author, used to deploy fixes during the hackathon. Before submission the contract is deployed from a reproducible build (its `contract_source_metadata` links the exact commit) and the full-access key is deleted, so the code can never change. Check it yourself: `view_access_key_list` on `pettycash.testnet` returns no keys.
 
 ## Limitations
 
 - The `pettycash` role must have exactly one member. With two members and a 1/1 threshold, Sputnik needs both votes; Petty Cash then reads the proposal back, sees it still `InProgress`, and leaves the payment for the council instead of marking it paid. This was found on testnet and is covered by a test.
 - `Paid` means the DAO reported the proposal `Approved` right after the vote. Sputnik executes the transfer in a later receipt; if that transfer fails, Sputnik marks the proposal `Failed`. The verifier reads the final status.
 - Each escalated payment locks one proposal bond from the DAO's pool until the council finalizes it. The demo DAO lowered its bond to 0.1 NEAR.
-- When the council approves an escalated payment, the contract is not notified, so the budget's spent amount does not include it. The web and the CSV read the proposal status from the DAO and show it as "Paid after council vote".
+- Sputnik does not notify Petty Cash when the council decides an escalated payment. Until someone calls `settle`, the budget does not count it; the web and the CSV already read the decision from the DAO. The demo calls `settle` right after the deciding vote.
 - Testnet only. Demo amounts are tUSD, test dollars with no value. Harbor Builders is a demo community, not a real one.
 
 ## Built with

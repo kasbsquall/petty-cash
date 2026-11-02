@@ -84,7 +84,8 @@ async function main() {
         (transfer.token_id || null) === (budget.rules.token ?? null) &&
         proposal.proposer === CONTRACT;
       check(Boolean(matches), `spend ${spend.id} matches DAO proposal #${spend.proposal_id}`);
-      const expected = { Paid: 'Approved', Escalated: 'InProgress' }[spend.status];
+      const expected = { Paid: 'Approved', Rejected: 'Rejected', Escalated: 'InProgress' }[spend.status];
+      const byCouncil = spend.status === 'Paid' && spend.reason != null;
       if (spend.status === 'Escalated') {
         check(
           ['InProgress', 'Approved', 'Rejected', 'Removed', 'Expired'].includes(proposal.status),
@@ -94,7 +95,8 @@ async function main() {
       } else if (expected) {
         check(proposal.status === expected, `spend ${spend.id} ${spend.status} and DAO says ${proposal.status}`);
       }
-      if (spend.status === 'Paid') {
+      // A payment the council approved by vote may exceed the caps; one paid inside the rules may not.
+      if (spend.status === 'Paid' && !byCouncil) {
         const capOk = BigInt(spend.amount) <= BigInt(budget.rules.per_payment_cap);
         check(capOk, `spend ${spend.id} within the per-payment cap`);
         if (spend.period_index === budget.period_index) paidThisPeriod += BigInt(spend.amount);
@@ -102,7 +104,7 @@ async function main() {
     }
     check(
       paidThisPeriod <= BigInt(budget.rules.period_cap),
-      `budget ${budget.id}: paid this period within the period cap`,
+      `budget ${budget.id}: paid inside the rules this period within the period cap`,
       `${paidThisPeriod} of ${budget.rules.period_cap}`,
     );
   }

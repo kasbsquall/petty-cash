@@ -34,11 +34,14 @@ export function view(contractId, method, args = {}) {
   return provider.callFunction({ contractId, method, args });
 }
 
-export function accountFor(accountId) {
-  const secret = process.env[KEYS[accountId]];
+export function accountFor(accountId, envName = KEYS[accountId]) {
+  const secret = process.env[envName];
   if (!secret) throw new Error(`No demo key configured for ${accountId}`);
   return new Account(accountId, provider, KeyPairSigner.fromSecretKey(secret));
 }
+
+// A second key on harbor-jon.testnet that can only call `settle` on Petty Cash.
+export const settler = () => accountFor('harbor-jon.testnet', 'DEMO_KEY_SETTLE');
 
 // Best effort per-instance limit. The on-chain budget rules are the real limit.
 const hits = new Map();

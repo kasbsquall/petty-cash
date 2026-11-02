@@ -1,9 +1,9 @@
-// POST /api/vote  { proposalId, approve }
+// POST /api/vote  { proposalId, spendId, approve }
 // Casts one council vote as a demo council member. It only votes on transfers
 // that Petty Cash filed, to a demo receiver, for a demo-sized amount.
 import {
   CONTRACT, DAO, MAX_DEMO_AMOUNT, RECEIVERS, TOKEN, TUSD,
-  accountFor, panicText, rateLimited, send, view,
+  accountFor, panicText, rateLimited, send, settler, view,
 } from './_lib.js';
 
 const DEMO_COUNCIL = ['harbor-jon.testnet', 'harbor-ines.testnet'];
@@ -14,7 +14,7 @@ export default async function handler(req, res) {
     return send(res, 429, { error: 'Too many demo requests from here. Try again in a few minutes.' });
   }
 
-  const { proposalId, approve } = req.body || {};
+  const { proposalId, spendId, approve } = req.body || {};
   if (!Number.isInteger(proposalId) || proposalId < 0 || typeof approve !== 'boolean') {
     return send(res, 400, { error: 'Pick a payment and a vote.' });
   }
@@ -42,7 +42,18 @@ export default async function handler(req, res) {
       waitUntil: 'FINAL',
     });
     const after = await view(DAO, 'get_proposal', { id: proposalId });
-    return send(res, 200, { txHash: outcome.transaction.hash, voter, proposal: after });
+    let settled = null;
+    if (after.status === 'Approved' || after.status === 'Rejected') {
+      // Record the council's decision in Petty Cash so the budget counts it.
+      const spend = Number.isInteger(spendId) ? await view(CONTRACT, 'get_spend', { spend_id: spendId }) : null;
+      if (spend && spend.dao === DAO && spend.proposal_id === proposalId && spend.status === 'Escalated') {
+        await settler().callFunctionRaw({
+          contractId: CONTRACT, methodName: 'settle', args: { spend_id: spendId }, gas: 60_000_000_000_000n, waitUntil: 'FINAL',
+        });
+        settled = spendId;
+      }
+    }
+    return send(res, 200, { txHash: outcome.transaction.hash, voter, proposal: after, settled });
   } catch (err) {
     const reason = panicText(err);
     console.error('vote failed', err);

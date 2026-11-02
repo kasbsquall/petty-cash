@@ -280,3 +280,79 @@ fn vote_that_does_not_approve_leaves_it_for_the_council() {
     assert_eq!(contract.get_budget(id).unwrap().spent.0, 0);
     assert_eq!(contract.get_budget(id).unwrap().reserved.0, 0);
 }
+
+fn escalated(contract: &mut Contract, budget: BudgetId, amount: u128) {
+    spend(contract, budget, amount, "food");
+    as_contract(2_001);
+    contract.on_proposal_added(0, false, Ok(9));
+}
+
+#[test]
+fn council_approval_settles_as_paid_and_counts() {
+    let (mut contract, id) = setup();
+    escalated(&mut contract, id, 7 * ONE_NEAR);
+    let pool_before = contract.get_pool(dao()).0;
+    as_contract(2_100);
+    contract.on_settled(0, Ok(near_sdk::serde_json::json!({"status": "Approved"})));
+    let s = contract.get_spend(0).unwrap();
+    assert_eq!(s.status, SpendStatus::Paid);
+    assert!(s.reason.unwrap().contains("council"));
+    assert_eq!(contract.get_budget(id).unwrap().spent.0, 7 * ONE_NEAR);
+    assert_eq!(contract.get_pool(dao()).0, pool_before + ONE_NEAR / 10, "bond returns to pool");
+}
+
+#[test]
+fn council_rejection_settles_as_rejected_without_counting() {
+    let (mut contract, id) = setup();
+    escalated(&mut contract, id, 7 * ONE_NEAR);
+    let pool_before = contract.get_pool(dao()).0;
+    as_contract(2_100);
+    contract.on_settled(0, Ok(near_sdk::serde_json::json!({"status": "Rejected"})));
+    assert_eq!(contract.get_spend(0).unwrap().status, SpendStatus::Rejected);
+    assert_eq!(contract.get_budget(id).unwrap().spent.0, 0);
+    assert_eq!(contract.get_pool(dao()).0, pool_before + ONE_NEAR / 10, "Sputnik returns the bond on reject");
+}
+
+#[test]
+fn undecided_proposal_stays_escalated() {
+    let (mut contract, id) = setup();
+    escalated(&mut contract, id, 7 * ONE_NEAR);
+    as_contract(2_100);
+    contract.on_settled(0, Ok(near_sdk::serde_json::json!({"status": "InProgress"})));
+    assert_eq!(contract.get_spend(0).unwrap().status, SpendStatus::Escalated);
+    assert_eq!(contract.get_budget(id).unwrap().spent.0, 0);
+}
+
+#[test]
+fn removed_proposal_settles_as_failed_and_keeps_pool() {
+    let (mut contract, id) = setup();
+    escalated(&mut contract, id, 7 * ONE_NEAR);
+    let pool_before = contract.get_pool(dao()).0;
+    as_contract(2_100);
+    contract.on_settled(0, Err(PromiseError::Failed));
+    assert_eq!(contract.get_spend(0).unwrap().status, SpendStatus::Failed);
+    assert_eq!(contract.get_pool(dao()).0, pool_before);
+    assert_eq!(contract.get_budget(id).unwrap().spent.0, 0);
+}
+
+#[test]
+fn approval_in_a_later_period_does_not_count_in_the_new_one() {
+    let (mut contract, id) = setup();
+    escalated(&mut contract, id, 7 * ONE_NEAR);
+    as_contract(1_000 + 31 * 24 * 3600);
+    contract.on_settled(0, Ok(near_sdk::serde_json::json!({"status": "Approved"})));
+    assert_eq!(contract.get_spend(0).unwrap().status, SpendStatus::Paid);
+    assert_eq!(contract.get_budget(id).unwrap().spent.0, 0);
+}
+
+#[test]
+#[should_panic(expected = "Only a payment waiting for the council can be settled")]
+fn settle_refuses_a_paid_spend() {
+    let (mut contract, id) = setup();
+    spend(&mut contract, id, ONE_NEAR, "food");
+    as_contract(2_001);
+    contract.on_proposal_added(0, true, Ok(1));
+    contract.on_checked(0, Ok(near_sdk::serde_json::json!({"status": "Approved"})));
+    testing_env!(context(&accounts(3), 0, 2_100).build());
+    contract.settle(0);
+}

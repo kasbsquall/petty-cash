@@ -43,6 +43,8 @@ pub enum SpendStatus {
     Escalated,
     /// The DAO call failed; nothing was paid and the reservation was released.
     Failed,
+    /// Escalated and then rejected by the council; nothing was paid.
+    Rejected,
 }
 
 #[near(serializers = [json, borsh])]
@@ -306,7 +308,96 @@ impl Contract {
             )
     }
 
+    /// Anyone can settle an escalated payment once the council has decided:
+    /// the contract reads the DAO's proposal and records the outcome, so the
+    /// budget counts payments the council approved.
+    pub fn settle(&mut self, spend_id: SpendId) -> Promise {
+        let spend = self
+            .spends
+            .get(spend_id as u32)
+            .cloned()
+            .expect("Unknown spend");
+        require!(
+            spend.status == SpendStatus::Escalated,
+            "Only a payment waiting for the council can be settled"
+        );
+        let proposal_id = spend
+            .proposal_id
+            .expect("The payment has no DAO proposal yet");
+        Promise::new(spend.dao.clone())
+            .function_call(
+                "get_proposal".to_string(),
+                json!({ "id": proposal_id }).to_string().into_bytes(),
+                NearToken::from_yoctonear(0),
+                GAS_VIEW_PROPOSAL,
+            )
+            .then(
+                Self::ext(env::current_account_id())
+                    .with_static_gas(GAS_CALLBACK)
+                    .on_settled(spend_id),
+            )
+    }
+
     // ---------- Callbacks ----------
+
+    /// Records the council's decision on an escalated payment.
+    #[private]
+    pub fn on_settled(
+        &mut self,
+        spend_id: SpendId,
+        #[callback_result] result: Result<near_sdk::serde_json::Value, PromiseError>,
+    ) {
+        let mut spend = self
+            .spends
+            .get(spend_id as u32)
+            .cloned()
+            .expect("Unknown spend");
+        if spend.status != SpendStatus::Escalated {
+            return;
+        }
+        let status = match result {
+            // A removed proposal no longer exists; Sputnik keeps its bond.
+            Err(_) => "Removed".to_string(),
+            Ok(p) => p
+                .get("status")
+                .and_then(|v| v.as_str())
+                .unwrap_or_default()
+                .to_string(),
+        };
+        match status.as_str() {
+            "Approved" => {
+                let mut budget = self
+                    .budgets
+                    .get(&spend.budget_id)
+                    .cloned()
+                    .expect("Unknown budget");
+                roll_period(&mut budget, env::block_timestamp());
+                if budget.period_index == spend.period_index {
+                    budget.spent = U128(budget.spent.0 + spend.amount.0);
+                }
+                self.budgets.insert(spend.budget_id, budget);
+                self.credit_bond(&spend);
+                spend.status = SpendStatus::Paid;
+                spend.reason = Some("Approved by a council vote".to_string());
+            }
+            "Rejected" => {
+                // Sputnik returns the bond to the proposer on a rejection.
+                self.credit_bond(&spend);
+                spend.status = SpendStatus::Rejected;
+                spend.reason = Some("Rejected by a council vote".to_string());
+            }
+            "InProgress" => {
+                env::log_str(&format!("spend {spend_id} still waits for the council"));
+                return;
+            }
+            other => {
+                spend.status = SpendStatus::Failed;
+                spend.reason = Some(format!("The DAO marked the proposal as {other}"));
+            }
+        }
+        env::log_str(&format!("spend {spend_id} settled: {status}"));
+        self.set_spend(spend);
+    }
 
     #[private]
     pub fn on_proposal_added(

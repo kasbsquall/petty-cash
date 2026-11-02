@@ -98,6 +98,14 @@ function councilState(spend) {
   };
 }
 const needed = () => Math.floor(data.council.length / 2) + 1;
+const paidByRules = (s) => s.status === 'Paid' && !s.reason;
+const outcome = (s) => {
+  if (paidByRules(s)) return 'rules';
+  if (s.status === 'Paid') return 'council-yes';
+  if (s.status === 'Rejected') return 'council-no';
+  const st = councilState(s).status;
+  return st === 'Approved' ? 'council-yes' : st === 'Rejected' ? 'council-no' : 'waiting';
+};
 const openVotes = () => data.spends.filter((s) => s.status === 'Escalated' && councilState(s).status === 'InProgress');
 
 /* ---------- count-up for the big figure ---------- */
@@ -278,7 +286,7 @@ function paintCouncil() {
       const b = data.budgets.find((x) => x.id === s.budget_id);
       const cs = councilState(s);
       const keys = Array.from({ length: needed() }, (_, k) => `<span class="llave ${k < cs.approvals ? 'puesta' : ''}"><i class="ph-light ph-key"></i></span>`).join('');
-      return `<article class="voto" data-p="${s.proposal_id}">
+      return `<article class="voto" data-p="${s.proposal_id}" data-s="${s.id}">
         <div class="linea1 num"><span>${esc(b?.rules.name ?? '')}, ${esc(s.category)}, ${day(s.at)}</span><span>proposal #${s.proposal_id}</span></div>
         <span class="monto-v num">${usd(dollars(s.amount))}</span>
         <p>${esc(s.memo)}</p>
@@ -291,8 +299,8 @@ function paintCouncil() {
     const b = data.budgets.find((x) => x.id === s.budget_id);
     return b && s.period_index === periodOf(b).index;
   });
-  const voted = thisPeriod.filter((s) => s.status === 'Escalated').length;
-  const paid = thisPeriod.filter((s) => s.status === 'Paid').length;
+  const paid = thisPeriod.filter(paidByRules).length;
+  const voted = thisPeriod.filter((s) => s.status !== 'Failed' && !paidByRules(s)).length;
   $('consejo-resumen').textContent = `This period the council was asked to vote on ${voted} of ${voted + paid} payments. The other ${paid} were paid inside the rules, with no vote.`;
 }
 
@@ -305,7 +313,7 @@ $('votos').addEventListener('click', async (e) => {
   card.querySelectorAll('.acciones .btn').forEach((b) => { b.disabled = true; });
   btn.innerHTML = '<span class="giro"></span>Voting';
   try {
-    const r = await post('/api/vote', { proposalId: Number(card.dataset.p), approve });
+    const r = await post('/api/vote', { proposalId: Number(card.dataset.p), spendId: Number(card.dataset.s), approve });
     const status = r.proposal.status;
     const yes = Object.values(r.proposal.votes || {}).filter((v) => v === 'Approve').length;
     card.querySelectorAll('.llave').forEach((k, j) => k.classList.toggle('puesta', j < yes));
@@ -362,7 +370,7 @@ function paintChannel() {
   const shown = all.slice(-MAX_CHANNEL);
   const ol = $('gotas');
   $('canal-t').textContent = `${b.rules.name} payments this period`;
-  const noVote = all.filter((s) => s.status === 'Paid').length;
+  const noVote = all.filter(paidByRules).length;
   const toCouncil = all.length - noVote;
   $('canal-gasto').innerHTML = `<span class="sello"><i class="ph-light ph-check-circle"></i>${noVote} paid with no council vote</span><span class="sello espera"><i class="ph-light ph-lock-key"></i>${toCouncil} sent to the council</span>` + (all.length > shown.length ? `<span>Showing the last ${shown.length} of ${all.length}</span>` : '');
   if (shown.length === 0) {
@@ -378,15 +386,14 @@ function paintChannel() {
     const txLink = tx
       ? `<a href="${EXPLORER}/txns/${tx}" target="_blank" rel="noopener" aria-label="Transaction for payment ${s.id}, DAO proposal ${s.proposal_id}">#${s.proposal_id}<i class="ph-light ph-arrow-square-out"></i></a>`
       : `<a href="${EXPLORER}/address/${s.receiver_id}" target="_blank" rel="noopener" aria-label="Receiver account ${esc(s.receiver_id)}, DAO proposal ${s.proposal_id}">#${s.proposal_id}<i class="ph-light ph-arrow-square-out"></i></a>`;
-    let state;
-    let waiting = false;
-    if (s.status === 'Paid') state = '<i class="ph-light ph-check-circle"></i>Paid inside the rules';
-    else {
-      const cs = councilState(s);
-      if (cs.status === 'Approved') state = '<i class="ph-light ph-check-circle"></i>Paid after council vote';
-      else if (cs.status === 'Rejected') state = '<i class="ph-light ph-x-circle"></i>Council said no';
-      else { waiting = true; state = `<i class="ph-light ph-hourglass-medium"></i>Council vote, ${cs.approvals} of ${needed()}`; }
-    }
+    const o = outcome(s);
+    const waiting = o === 'waiting';
+    const state = {
+      rules: '<i class="ph-light ph-check-circle"></i>Paid inside the rules',
+      'council-yes': '<i class="ph-light ph-check-circle"></i>Paid after council vote',
+      'council-no': '<i class="ph-light ph-x-circle"></i>Council said no',
+      waiting: `<i class="ph-light ph-hourglass-medium"></i>Council vote, ${councilState(s).approvals} of ${needed()}`,
+    }[o];
     return `<li class="gota ${waiting ? 'espera' : ''}" style="--k:${Math.min(k, 7)}"><span class="tramo" aria-hidden="true"></span>
       <span class="f num"><span>${day(s.at)}</span><span class="cat"><i class="ph-light ${CAT_ICON[s.category] || 'ph-tag'}"></i>${esc(s.category)}</span></span>
       <span class="v num">${usd(dollars(s.amount))}</span>
@@ -402,8 +409,9 @@ $('informe').addEventListener('click', () => {
   const rows = [['date', 'budget', 'category', 'what it is for', 'receiver', 'amount_tusd', 'status', 'dao_proposal', 'transaction']];
   data.spends.forEach((s) => {
     const b = data.budgets.find((x) => x.id === s.budget_id);
-    const cs = s.status === 'Escalated' ? councilState(s).status : s.status;
-    const status = s.status === 'Escalated' ? { Approved: 'paid after council vote', Rejected: 'rejected by council', InProgress: 'waiting for council' }[cs] || cs : s.status.toLowerCase();
+    const status = s.status === 'Failed' ? 'failed' : {
+      rules: 'paid inside the rules', 'council-yes': 'paid after council vote', 'council-no': 'rejected by council', waiting: 'waiting for council',
+    }[outcome(s)];
     rows.push([new Date(s.at / 1e6).toISOString().slice(0, 10), b?.rules.name ?? s.budget_id, s.category, s.memo, s.receiver_id, dollars(s.amount), status, s.proposal_id ?? '', txOf(s.id) || '']);
   });
   const csv = rows.map((r) => r.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(',')).join('\n');
