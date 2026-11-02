@@ -26,7 +26,22 @@ TODO: live URL and guided demo steps ("do X, see Y").
 
 ## Verify on testnet without keys
 
-TODO: `npm run verify` reads the demo DAO, the budgets and every spend from public RPC and checks each against the DAO's own proposal status.
+Needs Node 18 or later. No keys, no wallet, no install.
+
+```bash
+npm run verify
+```
+
+It reads the demo DAO `harbor-builders.sputnikv2.testnet` and the contract `pettycash.testnet` from public RPC and checks:
+
+- the DAO has a `pettycash` role with a single member, the contract, allowed only to add and approve transfer proposals;
+- every spend matches its DAO proposal (receiver, amount, token, proposer);
+- every spend marked paid has a proposal the DAO reports `Approved`, and every escalated spend has a proposal left for the council;
+- paid amounts stay inside the per-payment cap and the period cap.
+
+Expected on the demo DAO: `24 passed, 0 failed`. To check another deployment: `node scripts/verify.mjs --contract <contract> --dao <dao>.sputnikv2.testnet`.
+
+`scripts/seed-testnet.sh` rebuilds the whole demo (contract, tUSD, DAO, role, budgets, spends) step by step with near-cli-rs.
 
 ## Run the tests
 
