@@ -24,7 +24,7 @@
 }
 *{box-sizing:border-box}
 html{background:var(--cielo);color:var(--tinta);-webkit-text-size-adjust:100%}
-body{margin:0;font-family:"Libre Franklin",ui-serif,serif;font-size:14px;line-height:1.45;background:var(--cielo);min-height:100svh;overflow-x:hidden}
+body{margin:0;font-family:"Libre Franklin","Franklin Gothic Medium","Arial Narrow",sans-serif;font-size:14px;line-height:1.45;background:var(--cielo);min-height:100svh;overflow-x:hidden}
 ::selection{background:oklch(62% .11 225 / .28);color:var(--tinta)}
 .num{font-variant-numeric:tabular-nums lining-nums slashed-zero}
 button,input,select{font:inherit;color:inherit}

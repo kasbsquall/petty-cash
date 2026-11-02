@@ -159,6 +159,7 @@ function select(i) {
     + (end ? ` Open until ${end}.` : '') + (h.note ? ` ${h.note}` : '') + (b.paused ? ' <b>Paused by the DAO.</b>' : '');
   $('demo-quien').querySelector('span').textContent = `You act as ${h.name}, the ${b.rules.name} holder`;
   $('f-budget').value = String(i);
+  $('f-monto').placeholder = `up to ${p.per}`;
   const cat = $('f-cat').value;
   $('f-cat').innerHTML = b.rules.categories.map((c) => `<option value="${esc(c)}">${esc(c)}</option>`).join('');
   if (b.rules.categories.includes(cat)) $('f-cat').value = cat;
@@ -384,8 +385,8 @@ function paintChannel() {
   ol.innerHTML = shown.map((s, k) => {
     const tx = txOf(s.id);
     const txLink = tx
-      ? `<a href="${EXPLORER}/txns/${tx}" target="_blank" rel="noopener" aria-label="Transaction for payment ${s.id}, DAO proposal ${s.proposal_id}">#${s.proposal_id}<i class="ph-light ph-arrow-square-out"></i></a>`
-      : `<a href="${EXPLORER}/address/${s.receiver_id}" target="_blank" rel="noopener" aria-label="Receiver account ${esc(s.receiver_id)}, DAO proposal ${s.proposal_id}">#${s.proposal_id}<i class="ph-light ph-arrow-square-out"></i></a>`;
+      ? `<a href="${EXPLORER}/txns/${tx}" target="_blank" rel="noopener" aria-label="Transaction for payment ${s.id}, DAO proposal ${s.proposal_id}">Proposal ${s.proposal_id}<i class="ph-light ph-arrow-square-out"></i></a>`
+      : `<a href="${EXPLORER}/address/${s.receiver_id}" target="_blank" rel="noopener" aria-label="Receiver account ${esc(s.receiver_id)}, DAO proposal ${s.proposal_id}">Proposal ${s.proposal_id}<i class="ph-light ph-arrow-square-out"></i></a>`;
     const o = outcome(s);
     const waiting = o === 'waiting';
     const state = {
