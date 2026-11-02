@@ -356,3 +356,48 @@ body::before{content:"";position:fixed;inset:0;z-index:30;pointer-events:none;op
   .ir-pedir[data-oculto="si"]{opacity:0;transform:translateY(12px);pointer-events:none}
   .app{padding-bottom:84px}
 }
+
+/* QA round 3 (evaluator round 2): the model leads the first viewport */
+@media (min-width:861px){
+  :root{--W: min(118vw, calc((100svh - 70px) * 1.7917))}
+  .stage{top:70px;left:calc(37vw - var(--W) * .515)}
+  .comunidad h1{font-size:36px;letter-spacing:-.026em}
+  .bar{align-items:center}
+  .mecanismo b{font-weight:400}
+  /* the reservoir figure sits on the water, no card */
+  .embalse{top:22%;left:44%;background:none;box-shadow:none;padding:0;text-shadow:0 0 14px oklch(97% .012 85 / .95),0 0 3px oklch(97% .012 85 / .9)}
+  .embalse strong b{font-size:48px;letter-spacing:-.03em}
+  .embalse strong{gap:8px;font-size:14px}
+  .embalse > span{font-size:13px;color:var(--tinta)}
+  /* budget readout moves off the gate, up in the left column */
+  .lectura{left:28px;top:132px;width:264px}
+  /* gate labels: text with a halo, the clay stays visible */
+  #pin-1 .etiqueta,#pin-2 .etiqueta{background:none;box-shadow:none;padding:2px 4px;text-shadow:0 0 10px oklch(97% .012 85),0 0 3px oklch(97% .012 85),0 0 1px oklch(97% .012 85)}
+  #pin-1 .etiqueta:hover,#pin-2 .etiqueta:hover{transform:translateY(-2px);box-shadow:none;background:oklch(97% .012 85 / .7)}
+  #pin-1[aria-pressed="true"] .etiqueta,#pin-2[aria-pressed="true"] .etiqueta{background:var(--tinta);text-shadow:none;padding:7px 10px 8px}
+  /* the panel lets the scene breathe */
+  .panel{width:320px;background:oklch(97% .012 85 / .86);-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px)}
+  /* the channel sits on a band of sky so the model can run under it */
+  .canal{padding-top:46px;bottom:0;padding-bottom:18px;left:0;right:0;padding-left:28px;padding-right:28px;background:linear-gradient(180deg,transparent,var(--cielo) 46px)}
+  .gota .v{font-size:30px;letter-spacing:-.025em}
+}
+.badge{background:none;color:var(--compuerta-texto);min-width:0;height:auto;padding:0;font-size:13px;font-weight:600}
+.badge::before{content:"("}
+.badge::after{content:")"}
+/* round 3 fixes after looking at the render */
+.badge{display:inline}
+@media (min-width:861px){
+  .embalse{padding:8px 14px 9px;border-radius:var(--r);background:oklch(97% .012 85 / .62);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);text-shadow:none;box-shadow:0 1px 2px oklch(40% .05 225 / .1)}
+  .embalse > span{font-size:12.5px;color:var(--tinta-2)}
+  #pin-0 .etiqueta,#pin-1 .etiqueta,#pin-2 .etiqueta{background:oklch(97% .012 85 / .7);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);text-shadow:none;padding:6px 10px 7px;box-shadow:0 1px 2px oklch(40% .05 225 / .12)}
+  #pin-0 .tallo{display:block;left:0;bottom:6px;width:1px;height:58px}
+  #pin-0 .etiqueta{display:flex;right:0;bottom:64px}
+  #pin-1 .tallo{height:116px}
+  #pin-1 .etiqueta{right:auto;left:0;bottom:122px}
+  #pin-0[aria-pressed="true"] .etiqueta,#pin-1[aria-pressed="true"] .etiqueta,#pin-2[aria-pressed="true"] .etiqueta{background:var(--tinta);color:var(--placa)}
+  .lectura .hilo{display:none}
+}
+@media (min-width:861px){
+  #pin-1 .tallo{height:132px}
+  #pin-1 .etiqueta{bottom:138px}
+}
