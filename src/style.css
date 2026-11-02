@@ -429,3 +429,18 @@ body::before{content:"";position:fixed;inset:0;z-index:30;pointer-events:none;op
 @media (min-width:1101px) and (max-width:1400px){
   #pin-council .etiqueta{left:-85px;top:44px}
 }
+/* evaluator round 3: the request panel fits with the rule check open (Amount 600) */
+.tab{white-space:nowrap}
+@media (min-width:1101px){
+  .cuerpo{padding:14px 16px 16px}
+  form{gap:9px}
+  .campo{height:36px}
+  .panel{max-height:calc(var(--H) - 246px)}
+}
+/* the proposal number is plain text; only the icon opens the transaction */
+.gota .e .prop{margin-left:auto;color:var(--tinta-2)}
+.gota .e .prop + a{margin-left:0}
+/* one protagonist figure per viewport: the DAO balance steps down next to the $213 readout */
+@media (min-width:1101px){
+  .embalse strong b{font-size:36px}
+}

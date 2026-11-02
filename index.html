@@ -26,7 +26,7 @@
     </div>
     <div class="dcha">
       <span class="demo" id="demo-quien"><i class="ph-light ph-user-circle"></i><span>You act as the budget holder</span></span>
-      <button class="btn-sec" type="button" id="sonido" aria-pressed="true"><i class="ph-light ph-speaker-simple-high"></i><span>Sound on</span></button>
+      <button class="btn-sec" type="button" id="sonido"><i class="ph-light ph-speaker-simple-slash"></i><span>Mute sounds</span></button>
       <button class="btn-sec" type="button" id="informe" disabled><i class="ph-light ph-file-csv"></i>Monthly report</button>
     </div>
   </header>
@@ -104,7 +104,7 @@
             <option value="harbor-compute.testnet">Compute provider (harbor-compute.testnet)</option>
             <option value="harbor-ana.testnet">Ana, as a reimbursement (harbor-ana.testnet)</option>
           </select>
-          <span class="ayuda">Demo receivers only. With your own DAO, any NEAR account.</span>
+          <span class="ayuda">Demo receivers only; with your own DAO, any NEAR account. Every request is a real transaction on NEAR testnet.</span>
         </label>
 
         <div class="chequeo" aria-live="polite">
@@ -114,7 +114,6 @@
 
         <button class="btn" id="enviar" type="submit" data-v="vacio" disabled><span id="enviar-txt">Request payment</span></button>
         <div id="resultado" aria-live="polite"></div>
-        <span class="ayuda">Every request sends a real transaction on NEAR testnet.</span>
       </form>
     </div>
 

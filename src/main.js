@@ -59,10 +59,9 @@ function play(name) {
   a.play().catch(() => {});
 }
 function paintSound() {
-  $('sonido').setAttribute('aria-pressed', soundOn);
   $('sonido').innerHTML = soundOn
-    ? '<i class="ph-light ph-speaker-simple-high"></i><span>Sound on</span>'
-    : '<i class="ph-light ph-speaker-simple-slash"></i><span>Sound off</span>';
+    ? '<i class="ph-light ph-speaker-simple-slash"></i><span>Mute sounds</span>'
+    : '<i class="ph-light ph-speaker-simple-high"></i><span>Turn sounds on</span>';
 }
 $('sonido').addEventListener('click', () => { soundOn = !soundOn; keep('pc-sound', soundOn); paintSound(); });
 paintSound();
@@ -384,9 +383,9 @@ function paintChannel() {
   ol.style.setProperty('--n', shown.length);
   ol.innerHTML = shown.map((s, k) => {
     const tx = txOf(s.id);
-    const txLink = tx
-      ? `<a href="${EXPLORER}/txns/${tx}" target="_blank" rel="noopener" aria-label="Transaction for payment ${s.id}, DAO proposal ${s.proposal_id}">Proposal ${s.proposal_id}<i class="ph-light ph-arrow-square-out"></i></a>`
-      : `<a href="${EXPLORER}/address/${s.receiver_id}" target="_blank" rel="noopener" aria-label="Receiver account ${esc(s.receiver_id)}, DAO proposal ${s.proposal_id}">Proposal ${s.proposal_id}<i class="ph-light ph-arrow-square-out"></i></a>`;
+    const txLink = `<span class="prop">Proposal ${s.proposal_id}</span>` + (tx
+      ? `<a href="${EXPLORER}/txns/${tx}" target="_blank" rel="noopener" title="Open the transaction" aria-label="Open the transaction for payment ${s.id}, DAO proposal ${s.proposal_id}"><i class="ph-light ph-arrow-square-out"></i></a>`
+      : '');
     const o = outcome(s);
     const waiting = o === 'waiting';
     const state = {
