@@ -1,7 +1,8 @@
 #!/usr/bin/env node
 // Keyless verification of a Petty Cash deployment on NEAR testnet.
-// Reads public RPC only: the DAO policy, every budget and every spend, and
-// checks each spend against the DAO's own record of its proposal.
+// Reads public RPC only: who can change the contract, which keys the demo
+// server holds, the DAO policy, every budget and every spend, and checks each
+// spend against the DAO's own record of its proposal.
 //
 // Usage: node scripts/verify.mjs [--contract pettycash.testnet] [--dao <dao>.sputnikv2.testnet]
 
@@ -42,12 +43,63 @@ async function view(accountId, method, params = {}) {
   return JSON.parse(Buffer.from(body.result.result).toString('utf8'));
 }
 
+async function query(params) {
+  const res = await fetch(RPC, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ jsonrpc: '2.0', id: 'verify', method: 'query', params: { finality: 'final', ...params } }),
+  });
+  const body = await res.json();
+  if (body.error) throw new Error(`${params.request_type} ${params.account_id}: ${JSON.stringify(body.error)}`);
+  return body.result;
+}
+
+// The function-call keys the demo server signs with (public keys, see README "Demo keys").
+const DEMO_KEYS = [
+  ['harbor-ana.testnet', 'ed25519:48iUJhTKN6ZsYrDLkF3CpLcnNsBod2qj4HQLfVXBvRuU', 'pettycash.testnet', ['spend']],
+  ['harbor-rui.testnet', 'ed25519:YbyT43S7d2ezoJ6EWFbta5E7Z8AQibAyVbiDfsxAMW4', 'pettycash.testnet', ['spend']],
+  ['harbor-bot.testnet', 'ed25519:5sfhMmbWPk8ABhaeDbqBHwh8oo4nRKoURAB5QUH5EhLT', 'pettycash.testnet', ['spend']],
+  ['harbor-jon.testnet', 'ed25519:GfSw89YWDHMWxofJtvpxh83Vxmm2NcNEok95fMcXvsP2', 'harbor-builders.sputnikv2.testnet', ['act_proposal']],
+  ['harbor-ines.testnet', 'ed25519:HV4KnzgZYvnv54wtTCTaYjQNaAyghMwYK6Vidu4evSGU', 'harbor-builders.sputnikv2.testnet', ['act_proposal']],
+  ['harbor-jon.testnet', 'ed25519:EXdEPaMukdtU7iq6cmLxKwh79N7W4kSX4qZUNXMu6wDg', 'pettycash.testnet', ['settle']],
+];
+
+async function checkTrust() {
+  const keys = await query({ request_type: 'view_access_key_list', account_id: CONTRACT });
+  check(keys.keys.length === 0, `${CONTRACT} has no access keys, so its code cannot change`, `${keys.keys.length} key(s)`);
+
+  const meta = await view(CONTRACT, 'contract_source_metadata');
+  const build = meta.build_info ?? {};
+  check(
+    /^git\+https:\/\/github\.com\/.+\?rev=[0-9a-f]{40}$/.test(build.source_code_snapshot ?? '') &&
+      /@sha256:[0-9a-f]{64}$/.test(build.build_environment ?? ''),
+    `${CONTRACT} publishes a reproducible build (NEP-330)`,
+    build.source_code_snapshot ?? 'no build_info',
+  );
+
+  for (const [account, publicKey, receiver, methods] of DEMO_KEYS) {
+    let permission;
+    try {
+      permission = (await query({ request_type: 'view_access_key', account_id: account, public_key: publicKey })).permission;
+    } catch {
+      permission = null;
+    }
+    const call = permission?.FunctionCall;
+    check(
+      Boolean(call) && call.receiver_id === receiver && JSON.stringify(call.method_names) === JSON.stringify(methods),
+      `demo key on ${account} can only call ${methods.join(', ')} on ${receiver}`,
+      call ? `${call.receiver_id}: ${call.method_names.join(', ')}` : JSON.stringify(permission),
+    );
+  }
+}
+
 function check(ok, label, detail = '') {
   results[ok ? 'pass' : 'fail'] += 1;
   console.log(`${ok ? 'PASS' : 'FAIL'}  ${label}${detail ? `  (${detail})` : ''}`);
 }
 
 async function main() {
+  await checkTrust();
   console.log(`Petty Cash verification\ncontract ${CONTRACT}\ndao      ${DAO}\nrpc      ${RPC}\n`);
 
   const policy = await view(DAO, 'get_policy');

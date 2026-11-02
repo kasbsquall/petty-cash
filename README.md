@@ -52,12 +52,23 @@ npm run verify
 
 It reads the demo DAO and the contract from public RPC (FastNear, `https://test.rpc.fastnear.com`) and checks:
 
+- `pettycash.testnet` has no access keys, so nobody can redeploy it, and it publishes the commit and Docker image it was built from (NEP-330);
+- each key the demo server signs with is a function-call key limited to the one method listed under "Demo keys";
 - the DAO has a `pettycash` role with a single member, the contract, allowed only to add and approve transfer proposals;
 - every payment matches its DAO proposal (receiver, amount, token, proposer);
 - every payment marked paid has a proposal the DAO reports `Approved`, every rejected one a proposal the DAO reports `Rejected`, and every escalated one a proposal left for the council;
 - payments paid inside the rules stay inside the per-payment cap and the period cap (a payment the council approved by vote may exceed them).
 
 Expected: every line starts with `PASS` and the last line ends with `0 failed`. The number of checks grows as people use the demo. To check another deployment: `node scripts/verify.mjs --contract <contract> --dao <dao>.sputnikv2.testnet`.
+
+To check that the deployed code is the code in this repository, rebuild it (needs Docker and cargo-near 0.21.1) and compare hashes:
+
+```bash
+cd contract
+cargo near build reproducible-wasm
+```
+
+The build prints a `SHA-256 checksum bs58`. It must equal the `code_hash` that `view_account` returns for `pettycash.testnet`: `pmAvCz2Mo44AyS8jNXfgEbT6xT2wsErucTXDawZbqu5`, built from commit `08bd115` in `sourcescan/cargo-near:0.21.1-rust-1.96.0`. The contract source has not changed since that commit.
 
 ## Run the tests
 
@@ -108,7 +119,7 @@ This is a public demo on purpose: anyone who opens it acts as the holder and as 
 
 - Custody stays with the DAO. Petty Cash cannot move money by itself: it can only file a `Transfer` proposal and cast the vote of its role, and Sputnik executes the transfer.
 - At the Sputnik level, the `pettycash` role can approve any transfer of any amount. The budget rules live in the Petty Cash contract, so the code of `pettycash.testnet` is what a DAO trusts when it installs the role. A DAO can remove the role at any time with one policy proposal.
-- Who can change that code: today `pettycash.testnet` still has a full-access key held by the author, used to deploy fixes during the hackathon. Before submission the contract is deployed from a reproducible build (its `contract_source_metadata` links the exact commit) and the full-access key is deleted, so the code can never change. Check it yourself: `view_access_key_list` on `pettycash.testnet` returns no keys.
+- Who can change that code: nobody. `pettycash.testnet` was deployed from a reproducible build (its `contract_source_metadata` links the exact commit and Docker image) and its last full-access key was deleted, so the code can never change. Check it yourself: `view_access_key_list` on `pettycash.testnet` returns no keys, and `npm run verify` checks it too. A fix would mean a new contract account and a policy proposal in each DAO to point the role at it.
 
 ## Limitations
 
@@ -120,7 +131,7 @@ This is a public demo on purpose: anyone who opens it acts as the holder and as 
 
 ## Built with
 
-near-sdk 5.29, near-contract-standards 5.29, cargo-near 0.22.0, near-cli-rs 0.30.1, near-api-js 7.4.0, Vite 8.3.5, Sputnik DAO v2 (factory `sputnikv2.testnet`), FastNear RPC, Phosphor Icons, Libre Franklin (OFL), interface sounds by Kenney (CC0). The 3D model of the reservoir was generated with Google's Nano Banana. All code in this repository was written during the hackathon, with Claude Code as the coding assistant.
+near-sdk 5.29, near-contract-standards 5.29, cargo-near 0.21.1, near-cli-rs 0.30.1, near-api-js 7.4.0, Vite 8.3.5, Sputnik DAO v2 (factory `sputnikv2.testnet`), FastNear RPC, Phosphor Icons, Libre Franklin (OFL), interface sounds by Kenney (CC0). The 3D model of the reservoir was generated with Google's Nano Banana. All code in this repository was written during the hackathon, with Claude Code as the coding assistant.
 
 ## License
 

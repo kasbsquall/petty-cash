@@ -92,6 +92,15 @@ case "${1:-help}" in
     done
     view "$CONTRACT" list_budgets "{\"dao\":\"$DAO\"}" | grep -E '"id"|"name"'
     ;;
+  judges) # room for the judging weeks: more test dollars and a higher Meetups period cap, voted by the council
+    tx "$TOKEN" "$TOKEN" mint "{\"account_id\":\"$DAO\",\"amount\":\"$((40000 * TUSD))\"}" '0 NEAR'
+    meetups="{\"name\":\"Meetups\",\"token\":\"$TOKEN\",\"holders\":[\"$ANA\"],\"per_payment_cap\":\"$((250 * TUSD))\",\"period_cap\":\"$((6000 * TUSD))\",\"period_secs\":2592000,\"categories\":[\"food\",\"venue\",\"printing\"],\"expires_at\":$END_2026,\"proposal_bond\":\"100000000000000000000000\"}"
+    b64=$(node -e "console.log(Buffer.from(process.argv[1]).toString('base64'))" "{\"budget_id\":1,\"rules\":$meetups}")
+    kind="{\"FunctionCall\":{\"receiver_id\":\"$CONTRACT\",\"actions\":[{\"method_name\":\"update_budget\",\"args\":\"$b64\",\"deposit\":\"0\",\"gas\":\"50000000000000\"}]}}"
+    id=$(propose "Raise the Meetups period cap to 6,000 tUSD for the judging weeks" "$kind"); echo "proposal $id"
+    approve "$id" "$kind"
+    view "$CONTRACT" get_budget '{"budget_id":1}' | grep -E '"period_cap"|"spent"'
+    ;;
   spend) # holder budget_id receiver amount_tusd category memo
     tx "$2" "$CONTRACT" spend "{\"budget_id\":$3,\"receiver_id\":\"$4\",\"amount\":\"$(($5 * TUSD))\",\"category\":\"$6\",\"memo\":\"$7\"}" '0 NEAR'
     ;;
@@ -101,6 +110,6 @@ case "${1:-help}" in
     view "$CONTRACT" get_pool "{\"dao\":\"$DAO\"}"
     ;;
   *)
-    echo "steps: deploy dao fund-dao lower-bond install tusd budgets spend status"
+    echo "steps: deploy dao fund-dao lower-bond install tusd budgets judges spend status"
     ;;
 esac
