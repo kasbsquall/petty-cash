@@ -401,3 +401,16 @@ body::before{content:"";position:fixed;inset:0;z-index:30;pointer-events:none;op
   #pin-1 .tallo{height:132px}
   #pin-1 .etiqueta{bottom:138px}
 }
+@media (min-width:861px){
+  .embalse{top:16%;background:oklch(97% .012 85 / .86)}
+  #pin-0 .etiqueta,#pin-1 .etiqueta,#pin-2 .etiqueta{background:oklch(97% .012 85 / .88)}
+  .panel{max-height:calc(100svh - 270px)}
+  .canal{background:linear-gradient(180deg,transparent,var(--cielo) 28px)}
+}
+@media (min-width:861px){
+  .canal{padding-top:18px;background:var(--cielo)}
+  .canal::before{content:"";position:absolute;left:0;right:0;top:-40px;height:40px;background:linear-gradient(180deg,oklch(90% .04 215 / 0),var(--cielo));pointer-events:none}
+}
+@media (min-width:861px){
+  .embalse{background:var(--placa);-webkit-backdrop-filter:none;backdrop-filter:none}
+}
