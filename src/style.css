@@ -315,3 +315,15 @@ select.campo{appearance:none;padding-right:28px;background-image:url("data:image
   .gota:last-child .tramo{bottom:0}
   .gota.espera .tramo{background:repeating-linear-gradient(180deg,var(--compuerta) 0 5px,transparent 5px 10px)}
 }
+
+/* QA round 1 (impeccable detect) */
+.badge{background:var(--compuerta-texto);font-size:12px}
+.campo::placeholder{color:oklch(50% .02 240)}
+.ayuda,.canal header .nota,.comunidad h1 .rotulo{font-size:12px}
+.comunidad h1{font-size:22px;font-weight:500;letter-spacing:-.018em}
+.canal h2{font-size:18px;letter-spacing:-.015em}
+.embalse{top:24%}
+@media (max-width:860px){
+  .comunidad h1{font-size:19px}
+  .embalse{top:26%}
+}
