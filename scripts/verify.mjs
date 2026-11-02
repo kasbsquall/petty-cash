@@ -12,7 +12,7 @@ const args = Object.fromEntries(
   }, []),
 );
 
-const RPC = args.rpc ?? 'https://rpc.testnet.near.org';
+const RPC = args.rpc ?? 'https://test.rpc.fastnear.com';
 const CONTRACT = args.contract ?? 'pettycash.testnet';
 const DAO = args.dao ?? 'harbor-builders.sputnikv2.testnet';
 

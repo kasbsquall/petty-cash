@@ -1,0 +1,8 @@
+.env
+.env.*
+.claude
+contract/target
+test-usd/target
+node_modules
+dist
+*.log

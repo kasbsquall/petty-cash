@@ -3,7 +3,7 @@
 // `spend` on the Petty Cash contract, the council keys only `act_proposal` on the demo DAO.
 import { Account, JsonRpcProvider, KeyPairSigner } from 'near-api-js';
 
-export const RPC = process.env.NEAR_RPC || 'https://rpc.testnet.near.org';
+export const RPC = process.env.NEAR_RPC || 'https://test.rpc.fastnear.com';
 export const CONTRACT = 'pettycash.testnet';
 export const DAO = 'harbor-builders.sputnikv2.testnet';
 export const TOKEN = 'tusd-pettycash.testnet';

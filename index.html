@@ -1,0 +1,143 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Petty Cash · Harbor Builders demo</title>
+<meta name="description" content="Budgets with rules for a Sputnik DAO on NEAR. Inside the rules a payment leaves the DAO in seconds; anything else goes to a council vote.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Libre+Franklin:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="preload" as="image" href="/material/cerrada.webp">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M4 7c3-3 13-3 16 0v9a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2z' fill='none' stroke='%23223' stroke-width='1.6'/%3E%3Cpath d='M4 11c3 1.4 13 1.4 16 0' fill='none' stroke='%232a7fae' stroke-width='1.6'/%3E%3C/svg%3E">
+</head>
+<body>
+<div class="app" id="app" data-compuerta="cerrada" data-estado="cargando">
+
+  <header class="bar">
+    <div class="marca">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7c3-3 13-3 16 0v9a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2z" fill="none" stroke="currentColor" stroke-width="1.4"/><path d="M9 18v-6h6v6" fill="none" stroke="currentColor" stroke-width="1.4"/><path d="M4 11c3 1.4 13 1.4 16 0" fill="none" stroke="oklch(62% .11 225)" stroke-width="1.4"/></svg>
+      Petty Cash
+    </div>
+    <span class="sep" aria-hidden="true"></span>
+    <div class="comunidad">
+      <h1>Harbor Builders <span class="rotulo">demo community</span></h1>
+      <a class="dao" id="dao-link" target="_blank" rel="noopener">harbor-builders.sputnikv2.testnet</a>
+    </div>
+    <div class="dcha">
+      <span class="demo" id="demo-quien"><i class="ph-light ph-user-circle"></i><span>You act as the budget holder</span></span>
+      <button class="btn-sec" type="button" id="sonido" aria-pressed="true"><i class="ph-light ph-speaker-simple-high"></i><span>Sound on</span></button>
+      <button class="btn-sec" type="button" id="informe" disabled><i class="ph-light ph-file-csv"></i>Monthly report</button>
+    </div>
+  </header>
+
+  <p class="mecanismo">Inside a budget's rules, a payment leaves the DAO in seconds. Anything else becomes a normal council vote. <b>The money stays in the DAO until a payment goes out.</b></p>
+
+  <div class="escena" id="escena">
+    <div class="stage" id="stage">
+      <img class="cerrada" src="/material/cerrada.webp" width="2752" height="1536" alt="Clay model of the DAO as a reservoir: a curved dam holds the water, with three small sluice gates for the budgets and a large padlocked gate for the council vote.">
+      <img class="abierta" src="/material/abierta.webp" width="2752" height="1536" alt="" aria-hidden="true">
+
+      <div class="embalse" style="--i:0">
+        <strong><i class="ph-light ph-drop"></i><span id="embalse-saldo"><span class="esqueleto" style="width:9ch"></span></span></strong>
+        <span>The DAO's money. It stays here until a payment goes out.</span>
+      </div>
+
+      <div class="pin" id="pin-0" style="--i:1"><span class="tallo"></span><span class="halo"></span><span class="punto"></span>
+        <button class="etiqueta" type="button" data-pos="0"><span class="nombre"><span class="esqueleto" style="width:12ch"></span></span><span class="det num"></span></button></div>
+      <div class="pin" id="pin-1" style="--i:2"><span class="tallo"></span><span class="halo"></span><span class="punto"></span>
+        <button class="etiqueta" type="button" data-pos="1"><span class="nombre"><span class="esqueleto" style="width:10ch"></span></span><span class="det num"></span></button></div>
+      <div class="pin" id="pin-2" style="--i:3"><span class="tallo"></span><span class="halo"></span><span class="punto"></span>
+        <button class="etiqueta" type="button" data-pos="2"><span class="nombre"><span class="esqueleto" style="width:11ch"></span></span><span class="det num"></span></button></div>
+
+      <div class="pin" id="pin-council" style="--i:4">
+        <span class="tallo"></span><span class="punto"></span>
+        <button class="etiqueta espera" type="button" id="ir-consejo">
+          <span class="nombre"><i class="ph-light ph-lock-key"></i>Council vote</span>
+          <span class="det"><i class="ph-light ph-hourglass-medium reloj"></i> <span id="espera-txt" class="num">checking</span></span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <section class="lectura" id="lectura" style="--i:5" aria-live="polite" aria-labelledby="lectura-nombre">
+    <span class="hilo" id="hilo" aria-hidden="true"></span>
+    <div class="cab"><i class="ph-light ph-drop" id="lectura-icono"></i><span id="lectura-nombre"><span class="esqueleto" style="width:8ch"></span></span><small id="lectura-titular"></small></div>
+    <span class="cifra num" id="lectura-cifra"><span class="esqueleto alto" style="width:4ch"></span></span>
+    <p class="sub num" id="lectura-sub"><span class="esqueleto" style="width:16ch"></span></p>
+    <div id="lectura-medidor">
+      <div class="medidor" role="img" id="medidor"><i style="--p:0"></i></div>
+      <div class="pie num"><span id="gastado"></span><span id="periodo"></span></div>
+    </div>
+    <p class="reglas" id="lectura-reglas"></p>
+  </section>
+
+  <aside class="panel" aria-label="Payments">
+    <div class="tabs" role="tablist">
+      <button class="tab" role="tab" id="t-pedir" aria-selected="true" aria-controls="c-pedir"><i class="ph-light ph-hand-coins"></i>Request a payment</button>
+      <button class="tab" role="tab" id="t-consejo" aria-selected="false" aria-controls="c-consejo" tabindex="-1"><i class="ph-light ph-lock-key"></i>Council votes <span class="badge num" id="badge" hidden></span></button>
+    </div>
+
+    <div class="cuerpo" id="c-pedir" role="tabpanel" aria-labelledby="t-pedir">
+      <form id="form" novalidate>
+        <div class="fila">
+          <label>Budget
+            <select class="campo" id="f-budget" disabled></select>
+          </label>
+          <label>Amount
+            <span class="monto"><span>$</span><input class="campo num" id="f-monto" inputmode="decimal" autocomplete="off" placeholder="0" maxlength="8"></span>
+          </label>
+        </div>
+        <label>Category
+          <select class="campo" id="f-cat" disabled></select>
+        </label>
+        <label>What it is for
+          <input class="campo" id="f-para" autocomplete="off" maxlength="140" placeholder="e.g. Pizza and drinks for the meetup">
+          <span class="error" id="e-para" hidden>Say what the payment is for. It goes on the monthly report.</span>
+        </label>
+        <label>Receiver
+          <select class="campo" id="f-recibe">
+            <option value="harbor-venue.testnet">Harbor venue · harbor-venue.testnet</option>
+            <option value="harbor-print.testnet">Print shop · harbor-print.testnet</option>
+            <option value="harbor-studio.testnet">Design studio · harbor-studio.testnet</option>
+            <option value="harbor-compute.testnet">Compute provider · harbor-compute.testnet</option>
+            <option value="harbor-ana.testnet">Ana, as a reimbursement · harbor-ana.testnet</option>
+          </select>
+          <span class="ayuda">Demo receivers only. With your own DAO, any NEAR account.</span>
+        </label>
+
+        <div class="chequeo" aria-live="polite">
+          <div class="veredicto" id="veredicto" data-v="vacio"><i class="ph-light ph-scales"></i><span>Type an amount to check it against the rules.</span></div>
+          <ul id="checks"></ul>
+        </div>
+
+        <button class="btn" id="enviar" type="submit" data-v="vacio" disabled><span id="enviar-txt">Request payment</span></button>
+        <div id="resultado" aria-live="polite"></div>
+        <span class="ayuda">Real transactions on NEAR testnet. Amounts in tUSD, test dollars with no value.</span>
+      </form>
+    </div>
+
+    <div class="cuerpo" id="c-consejo" role="tabpanel" aria-labelledby="t-consejo" hidden>
+      <p class="nota-consejo" id="consejo-intro">You act as a council member. Two of three votes approve a payment.</p>
+      <div class="votos" id="votos"></div>
+      <p class="nota-consejo" id="consejo-resumen"></p>
+    </div>
+  </aside>
+
+  <section class="canal" aria-labelledby="canal-t">
+    <header>
+      <h2 id="canal-t">Payments this period</h2>
+      <span class="gasto num" id="canal-gasto"></span>
+      <span class="nota">Amounts in tUSD, test dollars on NEAR testnet</span>
+    </header>
+    <ol class="gotas" id="gotas"></ol>
+  </section>
+
+  <div class="fallo" id="fallo" hidden role="alert">
+    <p><i class="ph-light ph-cloud-slash"></i><span>NEAR testnet did not answer, so there is nothing to show yet.</span></p>
+    <button class="btn-sec" type="button" id="reintentar"><i class="ph-light ph-arrow-clockwise"></i>Try again</button>
+  </div>
+</div>
+<script type="module" src="/src/main.js"></script>
+</body>
+</html>
