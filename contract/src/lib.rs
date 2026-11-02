@@ -20,6 +20,10 @@ use near_sdk::{
 const GAS_ADD_PROPOSAL: Gas = Gas::from_tgas(20);
 const GAS_ACT_PROPOSAL: Gas = Gas::from_tgas(80);
 const GAS_CALLBACK: Gas = Gas::from_tgas(15);
+const GAS_STORAGE_DEPOSIT: Gas = Gas::from_tgas(10);
+const GAS_VIEW_PROPOSAL: Gas = Gas::from_tgas(10);
+/// NEP-145 registration for a standard fungible token account.
+const FT_STORAGE_DEPOSIT: u128 = 1_250_000_000_000_000_000_000;
 const MAX_HOLDERS: usize = 20;
 const MAX_CATEGORIES: usize = 12;
 const MAX_TEXT: usize = 280;
@@ -45,6 +49,8 @@ pub enum SpendStatus {
 #[derive(Clone, Debug)]
 pub struct BudgetRules {
     pub name: String,
+    /// Fungible token (NEP-141) the budget pays in. None means NEAR.
+    pub token: Option<AccountId>,
     pub holders: Vec<AccountId>,
     /// Largest single payment that is approved automatically, in yoctoNEAR.
     pub per_payment_cap: U128,
@@ -187,13 +193,20 @@ impl Contract {
         memo: String,
     ) -> Promise {
         let by = env::predecessor_account_id();
-        let mut budget = self.budgets.get(&budget_id).cloned().expect("Unknown budget");
+        let mut budget = self
+            .budgets
+            .get(&budget_id)
+            .cloned()
+            .expect("Unknown budget");
         require!(
             budget.rules.holders.contains(&by),
             "Only a holder of this budget can spend from it"
         );
         require!(amount.0 > 0, "Amount must be greater than zero");
-        require!(memo.len() <= MAX_TEXT && category.len() <= MAX_TEXT, "Text too long");
+        require!(
+            memo.len() <= MAX_TEXT && category.len() <= MAX_TEXT,
+            "Text too long"
+        );
         require!(!memo.trim().is_empty(), "Say what the payment is for");
 
         let now = env::block_timestamp();
@@ -202,9 +215,19 @@ impl Contract {
         let within = reason.is_none();
 
         let bond = budget.rules.proposal_bond.0;
+        let token = budget.rules.token.clone();
+        let registration = if token.is_some() {
+            FT_STORAGE_DEPOSIT
+        } else {
+            0
+        };
         let pool = self.pool_of(&budget.dao);
-        require!(pool >= bond, "The DAO's bond pool is too low; ask the DAO to fund it");
-        self.bond_pool.insert(budget.dao.clone(), pool - bond);
+        require!(
+            pool >= bond + registration,
+            "The DAO's bond pool is too low; ask the DAO to fund it"
+        );
+        self.bond_pool
+            .insert(budget.dao.clone(), pool - bond - registration);
 
         if within {
             budget.reserved = U128(budget.reserved.0 + amount.0);
@@ -222,7 +245,11 @@ impl Contract {
             memo: memo.clone(),
             at: now,
             period_index: budget.period_index,
-            status: if within { SpendStatus::Pending } else { SpendStatus::Escalated },
+            status: if within {
+                SpendStatus::Pending
+            } else {
+                SpendStatus::Escalated
+            },
             proposal_id: None,
             reason,
         });
@@ -234,15 +261,33 @@ impl Contract {
 
         let description = format!(
             "Petty Cash #{spend_id} from budget {budget_id}: {memo} ({category}) requested by {by}{}",
-            if within { "" } else { ". Outside the budget rules, needs a council vote." }
+            if within {
+                ""
+            } else {
+                ". Outside the budget rules, needs a council vote."
+            }
         );
         let args = json!({
             "proposal": {
                 "description": description,
-                "kind": transfer_kind(&receiver_id, amount),
+                "kind": transfer_kind(token.as_ref(), &receiver_id, amount),
             }
         });
-        Promise::new(dao)
+        // A token payment needs the receiver registered on the token first.
+        let start = match &token {
+            Some(token_id) => Promise::new(token_id.clone())
+                .function_call(
+                    "storage_deposit".to_string(),
+                    json!({ "account_id": receiver_id, "registration_only": true })
+                        .to_string()
+                        .into_bytes(),
+                    NearToken::from_yoctonear(FT_STORAGE_DEPOSIT),
+                    GAS_STORAGE_DEPOSIT,
+                )
+                .then(Promise::new(dao.clone())),
+            None => Promise::new(dao),
+        };
+        start
             .function_call(
                 "add_proposal".to_string(),
                 args.to_string().into_bytes(),
@@ -251,7 +296,12 @@ impl Contract {
             )
             .then(
                 Self::ext(env::current_account_id())
-                    .with_static_gas(GAS_ACT_PROPOSAL.saturating_add(GAS_CALLBACK).saturating_add(GAS_CALLBACK))
+                    .with_static_gas(
+                        GAS_ACT_PROPOSAL
+                            .saturating_add(GAS_VIEW_PROPOSAL)
+                            .saturating_add(GAS_CALLBACK)
+                            .saturating_add(GAS_CALLBACK),
+                    )
                     .on_proposal_added(spend_id, within),
             )
     }
@@ -265,7 +315,11 @@ impl Contract {
         within: bool,
         #[callback_result] result: Result<u64, PromiseError>,
     ) -> Option<Promise> {
-        let mut spend = self.spends.get(spend_id as u32).cloned().expect("Unknown spend");
+        let mut spend = self
+            .spends
+            .get(spend_id as u32)
+            .cloned()
+            .expect("Unknown spend");
         let proposal_id = match result {
             Ok(id) => id,
             Err(_) => {
@@ -281,13 +335,19 @@ impl Contract {
         spend.proposal_id = Some(proposal_id);
         self.set_spend(spend.clone());
         if !within {
-            env::log_str(&format!("spend {spend_id} escalated as proposal {proposal_id}"));
+            env::log_str(&format!(
+                "spend {spend_id} escalated as proposal {proposal_id}"
+            ));
             return None;
         }
+        let token = self
+            .budgets
+            .get(&spend.budget_id)
+            .and_then(|b| b.rules.token.clone());
         let args = json!({
             "id": proposal_id,
             "action": "VoteApprove",
-            "proposal": transfer_kind(&spend.receiver_id, spend.amount),
+            "proposal": transfer_kind(token.as_ref(), &spend.receiver_id, spend.amount),
         });
         Some(
             Promise::new(spend.dao.clone())
@@ -297,21 +357,45 @@ impl Contract {
                     NearToken::from_yoctonear(0),
                     GAS_ACT_PROPOSAL,
                 )
+                // Read the proposal back: the vote call can succeed without approving it.
+                .then(Promise::new(spend.dao.clone()).function_call(
+                    "get_proposal".to_string(),
+                    json!({ "id": proposal_id }).to_string().into_bytes(),
+                    NearToken::from_yoctonear(0),
+                    GAS_VIEW_PROPOSAL,
+                ))
                 .then(
                     Self::ext(env::current_account_id())
                         .with_static_gas(GAS_CALLBACK)
-                        .on_approved(spend_id),
+                        .on_checked(spend_id),
                 ),
         )
     }
 
+    /// Settles a spend from the DAO's own record of the proposal.
     #[private]
-    pub fn on_approved(&mut self, spend_id: SpendId, #[callback_result] result: Result<(), PromiseError>) {
-        let mut spend = self.spends.get(spend_id as u32).cloned().expect("Unknown spend");
-        let mut budget = self.budgets.get(&spend.budget_id).cloned().expect("Unknown budget");
+    pub fn on_checked(
+        &mut self,
+        spend_id: SpendId,
+        #[callback_result] result: Result<near_sdk::serde_json::Value, PromiseError>,
+    ) {
+        let mut spend = self
+            .spends
+            .get(spend_id as u32)
+            .cloned()
+            .expect("Unknown spend");
+        let mut budget = self
+            .budgets
+            .get(&spend.budget_id)
+            .cloned()
+            .expect("Unknown budget");
         budget.reserved = U128(budget.reserved.0.saturating_sub(spend.amount.0));
-        match result {
-            Ok(()) => {
+        let status = result
+            .ok()
+            .and_then(|p| p.get("status").and_then(|v| v.as_str()).map(str::to_string))
+            .unwrap_or_default();
+        match status.as_str() {
+            "Approved" => {
                 if budget.period_index == spend.period_index {
                     budget.spent = U128(budget.spent.0 + spend.amount.0);
                 }
@@ -320,9 +404,17 @@ impl Contract {
                 spend.status = SpendStatus::Paid;
                 env::log_str(&format!("spend {spend_id} paid"));
             }
-            Err(_) => {
+            "InProgress" => {
+                spend.status = SpendStatus::Escalated;
+                spend.reason = Some(
+                    "The keeper vote did not approve it; it waits for a council vote".to_string(),
+                );
+                env::log_str(&format!("spend {spend_id} left for the council"));
+            }
+            other => {
                 spend.status = SpendStatus::Failed;
-                spend.reason = Some("The DAO did not approve the payment".to_string());
+                spend.reason = Some(format!("The DAO marked the payment as {other}"));
+                env::log_str(&format!("spend {spend_id} failed: {other}"));
             }
         }
         self.budgets.insert(spend.budget_id, budget);
@@ -356,7 +448,12 @@ impl Contract {
     }
 
     /// Spends of one budget, oldest first.
-    pub fn list_spends(&self, budget_id: BudgetId, from_index: Option<u64>, limit: Option<u64>) -> Vec<Spend> {
+    pub fn list_spends(
+        &self,
+        budget_id: BudgetId,
+        from_index: Option<u64>,
+        limit: Option<u64>,
+    ) -> Vec<Spend> {
         let from = from_index.unwrap_or(0);
         let limit = limit.unwrap_or(50).min(200) as usize;
         self.spends
@@ -375,8 +472,15 @@ impl Contract {
     // ---------- Internal ----------
 
     fn dao_budget(&self, budget_id: BudgetId, dao: &AccountId) -> Budget {
-        let budget = self.budgets.get(&budget_id).cloned().expect("Unknown budget");
-        require!(&budget.dao == dao, "Only the DAO that owns this budget can change it");
+        let budget = self
+            .budgets
+            .get(&budget_id)
+            .cloned()
+            .expect("Unknown budget");
+        require!(
+            &budget.dao == dao,
+            "Only the DAO that owns this budget can change it"
+        );
         budget
     }
 
@@ -424,15 +528,22 @@ impl Contract {
         }
         let cost = env::storage_byte_cost().as_yoctonear() * u128::from(after - storage_before);
         let pool = self.pool_of(dao);
-        require!(pool >= cost, "The DAO's bond pool cannot cover storage; fund it first");
+        require!(
+            pool >= cost,
+            "The DAO's bond pool cannot cover storage; fund it first"
+        );
         self.bond_pool.insert(dao.clone(), pool - cost);
     }
 }
 
-fn transfer_kind(receiver_id: &AccountId, amount: U128) -> near_sdk::serde_json::Value {
+fn transfer_kind(
+    token: Option<&AccountId>,
+    receiver_id: &AccountId,
+    amount: U128,
+) -> near_sdk::serde_json::Value {
     json!({
         "Transfer": {
-            "token_id": "",
+            "token_id": token.map(|t| t.to_string()).unwrap_or_default(),
             "receiver_id": receiver_id,
             "amount": amount,
             "msg": null,
@@ -441,18 +552,30 @@ fn transfer_kind(receiver_id: &AccountId, amount: U128) -> near_sdk::serde_json:
 }
 
 fn validate_rules(rules: &BudgetRules) {
-    require!(!rules.name.trim().is_empty() && rules.name.len() <= MAX_TEXT, "Give the budget a name");
+    require!(
+        !rules.name.trim().is_empty() && rules.name.len() <= MAX_TEXT,
+        "Give the budget a name"
+    );
     require!(
         !rules.holders.is_empty() && rules.holders.len() <= MAX_HOLDERS,
         "A budget needs between 1 and 20 holders"
     );
-    require!(rules.categories.len() <= MAX_CATEGORIES, "Too many categories");
-    require!(rules.per_payment_cap.0 > 0, "Per-payment cap must be greater than zero");
+    require!(
+        rules.categories.len() <= MAX_CATEGORIES,
+        "Too many categories"
+    );
+    require!(
+        rules.per_payment_cap.0 > 0,
+        "Per-payment cap must be greater than zero"
+    );
     require!(
         rules.period_cap.0 >= rules.per_payment_cap.0,
         "Period cap must be at least the per-payment cap"
     );
-    require!(rules.period_secs >= 60, "Period must be at least 60 seconds");
+    require!(
+        rules.period_secs >= 60,
+        "Period must be at least 60 seconds"
+    );
 }
 
 /// Moves the budget to the current period, resetting what was spent.

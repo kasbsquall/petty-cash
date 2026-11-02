@@ -26,6 +26,7 @@ fn context(predecessor: &AccountId, deposit: u128, now_secs: u64) -> VMContextBu
 fn rules() -> BudgetRules {
     BudgetRules {
         name: "Meetups".to_string(),
+        token: None,
         holders: vec![accounts(1)],
         per_payment_cap: U128(5 * ONE_NEAR),
         period_cap: U128(12 * ONE_NEAR),
@@ -45,7 +46,13 @@ fn setup() -> (Contract, BudgetId) {
 
 fn spend(contract: &mut Contract, budget: BudgetId, amount: u128, category: &str) {
     testing_env!(context(&accounts(1), 0, 2_000).build());
-    contract.spend(budget, accounts(2), U128(amount), category.to_string(), "Pizza".to_string());
+    contract.spend(
+        budget,
+        accounts(2),
+        U128(amount),
+        category.to_string(),
+        "Pizza".to_string(),
+    );
 }
 
 /// Callbacks are called directly with their result, as the runtime would.
@@ -59,7 +66,10 @@ fn dao_creates_budget_and_funds_pool() {
     let budget = contract.get_budget(id).unwrap();
     assert_eq!(budget.dao, dao());
     assert!(contract.get_pool(dao()).0 > 0);
-    assert!(contract.get_pool(dao()).0 < 2 * ONE_NEAR, "storage is charged to the pool");
+    assert!(
+        contract.get_pool(dao()).0 < 2 * ONE_NEAR,
+        "storage is charged to the pool"
+    );
 }
 
 #[test]
@@ -97,7 +107,10 @@ fn period_cap_counts_reserved_and_spent() {
     spend(&mut contract, id, 5 * ONE_NEAR, "food");
     spend(&mut contract, id, 5 * ONE_NEAR, "food");
     spend(&mut contract, id, 5 * ONE_NEAR, "food");
-    assert_eq!(contract.get_spend(2).unwrap().status, SpendStatus::Escalated);
+    assert_eq!(
+        contract.get_spend(2).unwrap().status,
+        SpendStatus::Escalated
+    );
     assert_eq!(
         contract.get_spend(2).unwrap().reason.as_deref(),
         Some("Above what is left in this period")
@@ -109,7 +122,13 @@ fn period_cap_counts_reserved_and_spent() {
 fn non_holder_cannot_spend() {
     let (mut contract, id) = setup();
     testing_env!(context(&accounts(3), 0, 2_000).build());
-    contract.spend(id, accounts(3), U128(ONE_NEAR), "food".to_string(), "Me".to_string());
+    contract.spend(
+        id,
+        accounts(3),
+        U128(ONE_NEAR),
+        "food".to_string(),
+        "Me".to_string(),
+    );
 }
 
 #[test]
@@ -137,7 +156,10 @@ fn paused_budget_escalates_everything() {
     testing_env!(context(&dao(), 0, 1_500).build());
     contract.set_paused(id, true);
     spend(&mut contract, id, ONE_NEAR, "food");
-    assert_eq!(contract.get_spend(0).unwrap().reason.as_deref(), Some("The budget is paused"));
+    assert_eq!(
+        contract.get_spend(0).unwrap().reason.as_deref(),
+        Some("The budget is paused")
+    );
 }
 
 #[test]
@@ -162,12 +184,16 @@ fn approval_marks_paid_and_moves_reserve_to_spent() {
     contract.on_proposal_added(0, true, Ok(7));
     assert_eq!(contract.get_spend(0).unwrap().proposal_id, Some(7));
     as_contract(2_002);
-    contract.on_approved(0, Ok(()));
+    contract.on_checked(0, Ok(near_sdk::serde_json::json!({"status": "Approved"})));
     let budget = contract.get_budget(id).unwrap();
     assert_eq!(contract.get_spend(0).unwrap().status, SpendStatus::Paid);
     assert_eq!(budget.spent.0, 3 * ONE_NEAR);
     assert_eq!(budget.reserved.0, 0);
-    assert_eq!(contract.get_pool(dao()).0, pool_before + ONE_NEAR / 10, "bond returns to pool");
+    assert_eq!(
+        contract.get_pool(dao()).0,
+        pool_before + ONE_NEAR / 10,
+        "bond returns to pool"
+    );
 }
 
 #[test]
@@ -188,7 +214,7 @@ fn failed_approval_releases_reserve_without_counting() {
     as_contract(2_001);
     contract.on_proposal_added(0, true, Ok(1));
     as_contract(2_002);
-    contract.on_approved(0, Err(PromiseError::Failed));
+    contract.on_checked(0, Err(PromiseError::Failed));
     let budget = contract.get_budget(id).unwrap();
     assert_eq!(contract.get_spend(0).unwrap().status, SpendStatus::Failed);
     assert_eq!(budget.spent.0, 0);
@@ -201,7 +227,7 @@ fn new_period_resets_spent() {
     spend(&mut contract, id, 5 * ONE_NEAR, "food");
     as_contract(2_001);
     contract.on_proposal_added(0, true, Ok(1));
-    contract.on_approved(0, Ok(()));
+    contract.on_checked(0, Ok(near_sdk::serde_json::json!({"status": "Approved"})));
     testing_env!(context(&accounts(1), 0, 1_000 + 31 * 24 * 3600).build());
     let budget = contract.get_budget(id).unwrap();
     assert_eq!(budget.spent.0, 0);
@@ -225,4 +251,32 @@ fn list_budgets_filters_by_dao() {
     contract.create_budget(rules());
     assert_eq!(contract.list_budgets(dao()).len(), 1);
     assert_eq!(contract.list_budgets(other_dao()).len(), 1);
+}
+
+#[test]
+fn token_budget_reserves_registration_from_pool() {
+    testing_env!(context(&dao(), 2 * ONE_NEAR, 1_000).build());
+    let mut contract = Contract::new();
+    let mut r = rules();
+    r.token = Some("tusd.pettycash.testnet".parse().unwrap());
+    let id = contract.create_budget(r);
+    let pool_before = contract.get_pool(dao()).0;
+    spend(&mut contract, id, ONE_NEAR, "food");
+    let pool_after = contract.get_pool(dao()).0;
+    assert!(pool_before - pool_after >= ONE_NEAR / 10 + FT_STORAGE_DEPOSIT);
+    assert_eq!(contract.get_spend(0).unwrap().status, SpendStatus::Pending);
+}
+
+#[test]
+fn vote_that_does_not_approve_leaves_it_for_the_council() {
+    let (mut contract, id) = setup();
+    spend(&mut contract, id, 3 * ONE_NEAR, "food");
+    as_contract(2_001);
+    contract.on_proposal_added(0, true, Ok(1));
+    contract.on_checked(0, Ok(near_sdk::serde_json::json!({"status": "InProgress"})));
+    let s = contract.get_spend(0).unwrap();
+    assert_eq!(s.status, SpendStatus::Escalated);
+    assert!(s.reason.unwrap().contains("council"));
+    assert_eq!(contract.get_budget(id).unwrap().spent.0, 0);
+    assert_eq!(contract.get_budget(id).unwrap().reserved.0, 0);
 }
