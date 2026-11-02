@@ -354,7 +354,7 @@ $('t-pedir').addEventListener('click', () => tab('pedir'));
 $('t-consejo').addEventListener('click', () => tab('consejo'));
 $('ir-consejo').addEventListener('click', () => {
   tab('consejo');
-  if (matchMedia('(max-width:860px)').matches) document.querySelector('.panel').scrollIntoView({ behavior: reduced ? 'auto' : 'smooth', block: 'start' });
+  if (matchMedia('(max-width:1100px)').matches) document.querySelector('.panel').scrollIntoView({ behavior: reduced ? 'auto' : 'smooth', block: 'start' });
 });
 document.querySelector('.tabs').addEventListener('keydown', (e) => {
   if (e.key !== 'ArrowRight' && e.key !== 'ArrowLeft') return;

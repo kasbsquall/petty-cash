@@ -218,12 +218,12 @@ select.campo{appearance:none;padding-right:28px;background-image:url("data:image
 }
 
 /* ---------- mid widths ---------- */
-@media (max-width:1180px) and (min-width:861px){
+@media (max-width:1180px) and (min-width:1101px){
   .panel{width:300px}
 }
 
 /* ---------- phone: the model becomes a cropped window on the dam ---------- */
-@media (max-width:860px){
+@media (max-width:1100px){
   .app{min-height:0;padding-bottom:28px}
   .bar{flex-wrap:wrap;gap:10px 14px;padding:14px 16px 0}
   .bar .dcha{margin-left:0;width:100%;justify-content:space-between}
@@ -255,7 +255,7 @@ select.campo{appearance:none;padding-right:28px;background-image:url("data:image
   .gotas::after{left:4px;right:auto;top:var(--agua-hasta,75%);bottom:6px;width:2px;height:auto;background:repeating-linear-gradient(180deg,var(--compuerta) 0 5px,transparent 5px 10px)}
   .gota::before{left:-22px;top:5px}
 }
-@media (max-width:860px) and (min-width:600px){
+@media (max-width:1100px) and (min-width:600px){
   .stage{--W:1000px;width:1000px;left:calc(50% - 560px);top:-150px}
   .escena{height:380px}
 }
@@ -296,7 +296,7 @@ select.campo{appearance:none;padding-right:28px;background-image:url("data:image
   .esqueleto{animation:none !important}
 }
 .badge[hidden]{display:none}
-@media (max-width:860px){
+@media (max-width:1100px){
   .bar .dcha{flex-wrap:wrap;gap:8px}
   .bar .demo{width:100%}
   .embalse span{display:inline}
@@ -310,7 +310,7 @@ select.campo{appearance:none;padding-right:28px;background-image:url("data:image
 .gota:last-child .tramo{right:0}
 .gota.espera .tramo{background:repeating-linear-gradient(90deg,var(--compuerta) 0 5px,transparent 5px 10px);animation:respira 2.6s ease-in-out infinite}
 .gota::before{z-index:1}
-@media (max-width:860px){
+@media (max-width:1100px){
   .gota .tramo{left:-18px;right:auto;top:5px;bottom:-14px;width:2px;height:auto}
   .gota:last-child .tramo{bottom:0}
   .gota.espera .tramo{background:repeating-linear-gradient(180deg,var(--compuerta) 0 5px,transparent 5px 10px)}
@@ -323,7 +323,7 @@ select.campo{appearance:none;padding-right:28px;background-image:url("data:image
 .comunidad h1{font-size:22px;font-weight:500;letter-spacing:-.018em}
 .canal h2{font-size:18px;letter-spacing:-.015em}
 .embalse{top:24%}
-@media (max-width:860px){
+@media (max-width:1100px){
   .comunidad h1{font-size:19px}
   .embalse{top:26%}
 }
@@ -348,7 +348,7 @@ select.campo{appearance:none;padding-right:28px;background-image:url("data:image
 .gota .e a:hover{background:oklch(24% .03 240 / .06)}
 .ir-pedir{display:none}
 body::before{content:"";position:fixed;inset:0;z-index:30;pointer-events:none;opacity:.035;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E")}
-@media (max-width:860px){
+@media (max-width:1100px){
   .comunidad h1{font-size:24px}
   .embalse strong b{font-size:20px}
   .ir-pedir{display:flex;align-items:center;justify-content:center;gap:8px;position:fixed;z-index:25;left:16px;right:16px;bottom:16px;height:46px;border:0;border-radius:var(--r);background:var(--tinta);color:var(--placa);font-size:15px;font-weight:600;box-shadow:var(--sombra);transition:transform .2s var(--ease),opacity .2s var(--ease)}
@@ -358,12 +358,14 @@ body::before{content:"";position:fixed;inset:0;z-index:30;pointer-events:none;op
 }
 
 /* QA round 3 (evaluator round 2): the model leads the first viewport */
-@media (min-width:861px){
+@media (min-width:1101px){
   :root{--W: min(118vw, calc((100svh - 70px) * 1.7917))}
   .stage{top:70px;left:calc(37vw - var(--W) * .515)}
   .comunidad h1{font-size:36px;letter-spacing:-.026em}
   .bar{align-items:center}
   .mecanismo b{font-weight:400}
+  /* two lines at most, so the reading card below never covers it */
+  .mecanismo{max-width:min(660px,calc(100vw - 400px))}
   /* the reservoir figure sits on the water, no card */
   .embalse{top:22%;left:44%;background:none;box-shadow:none;padding:0;text-shadow:0 0 14px oklch(97% .012 85 / .95),0 0 3px oklch(97% .012 85 / .9)}
   .embalse strong b{font-size:48px;letter-spacing:-.03em}
@@ -386,7 +388,7 @@ body::before{content:"";position:fixed;inset:0;z-index:30;pointer-events:none;op
 .badge::after{content:")"}
 /* round 3 fixes after looking at the render */
 .badge{display:inline}
-@media (min-width:861px){
+@media (min-width:1101px){
   .embalse{padding:8px 14px 9px;border-radius:var(--r);background:oklch(97% .012 85 / .62);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);text-shadow:none;box-shadow:0 1px 2px oklch(40% .05 225 / .1)}
   .embalse > span{font-size:12.5px;color:var(--tinta-2)}
   #pin-0 .etiqueta,#pin-1 .etiqueta,#pin-2 .etiqueta{background:oklch(97% .012 85 / .7);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);text-shadow:none;padding:6px 10px 7px;box-shadow:0 1px 2px oklch(40% .05 225 / .12)}
@@ -397,20 +399,33 @@ body::before{content:"";position:fixed;inset:0;z-index:30;pointer-events:none;op
   #pin-0[aria-pressed="true"] .etiqueta,#pin-1[aria-pressed="true"] .etiqueta,#pin-2[aria-pressed="true"] .etiqueta{background:var(--tinta);color:var(--placa)}
   .lectura .hilo{display:none}
 }
-@media (min-width:861px){
+@media (min-width:1101px){
   #pin-1 .tallo{height:132px}
   #pin-1 .etiqueta{bottom:138px}
 }
-@media (min-width:861px){
+@media (min-width:1101px){
   .embalse{top:16%;background:oklch(97% .012 85 / .86)}
   #pin-0 .etiqueta,#pin-1 .etiqueta,#pin-2 .etiqueta{background:oklch(97% .012 85 / .88)}
   .panel{max-height:calc(100svh - 270px)}
   .canal{background:linear-gradient(180deg,transparent,var(--cielo) 28px)}
 }
-@media (min-width:861px){
+@media (min-width:1101px){
   .canal{padding-top:18px;background:var(--cielo)}
   .canal::before{content:"";position:absolute;left:0;right:0;top:-40px;height:40px;background:linear-gradient(180deg,oklch(90% .04 215 / 0),var(--cielo));pointer-events:none}
 }
-@media (min-width:861px){
+@media (min-width:1101px){
   .embalse{background:var(--placa);-webkit-backdrop-filter:none;backdrop-filter:none}
+}
+/* short laptop screens (1280x720, 1366x768): lay the page out as if it were 880px tall and let it scroll,
+   so the scene keeps its size, the request button stays in the first viewport and the reading card clears the gate */
+@media (min-width:1101px){
+  :root{--H:max(100svh,880px);--W:min(118vw,calc((var(--H) - 70px) * 1.7917))}
+  .app{min-height:var(--H)}
+  .panel{max-height:calc(var(--H) - 270px)}
+  .lectura{width:clamp(220px,18.3vw,264px)}
+  #pin-0 .etiqueta{right:-40px}
+}
+/* up to 1400px the council label would run under the panel: it hangs below the lock instead */
+@media (min-width:1101px) and (max-width:1400px){
+  #pin-council .etiqueta{left:-85px;top:44px}
 }
