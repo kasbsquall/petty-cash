@@ -21,6 +21,10 @@ const SEEDED_TX = {
   7: 'JAm547byodX61YbeMwBTScq52nCTfWHY2X6DJrsf1fJ1',
 };
 const MAX_CHANNEL = 5;
+const CAT_ICON = {
+  food: 'ph-fork-knife', venue: 'ph-door-open', printing: 'ph-printer',
+  tools: 'ph-wrench', freelance: 'ph-paint-brush', compute: 'ph-cpu',
+};
 
 const $ = (id) => document.getElementById(id);
 const app = $('app');
@@ -116,11 +120,12 @@ function paintGates() {
   data.budgets.slice(0, 3).forEach((b, i) => {
     const h = holderOf(b);
     const label = document.querySelector(`#pin-${i} .etiqueta`);
-    label.querySelector('.nombre').innerHTML = `<i class="ph-light ${h.icon}"></i>${esc(b.rules.name)}<span class="quien"> · ${esc(h.name)}</span>`;
-    label.querySelector('.det').textContent = `up to ${usd(dollars(b.rules.per_payment_cap))} a payment`;
+    const p = periodOf(b);
+    label.querySelector('.nombre').innerHTML = `<i class="ph-light ${h.icon}"></i>${esc(b.rules.name)}`;
+    label.querySelector('.det').textContent = `${usd(Math.max(0, p.cap - p.spent))} left of ${usd(p.cap)}`;
     label.setAttribute('aria-label', `${b.rules.name} budget, held by ${h.name}`);
   });
-  $('embalse-saldo').textContent = `${usd(dollars(data.balance))} in the DAO`;
+  $('embalse-saldo').innerHTML = `<b class="num">${usd(dollars(data.balance))}</b> in the DAO`;
   $('dao-link').href = `${EXPLORER}/address/${DAO}`;
   $('f-budget').innerHTML = data.budgets.map((b, i) => `<option value="${i}">${esc(b.rules.name)}</option>`).join('');
   $('f-budget').disabled = false;
@@ -274,10 +279,10 @@ function paintCouncil() {
       const cs = councilState(s);
       const keys = Array.from({ length: needed() }, (_, k) => `<span class="llave ${k < cs.approvals ? 'puesta' : ''}"><i class="ph-light ph-key"></i></span>`).join('');
       return `<article class="voto" data-p="${s.proposal_id}">
-        <div class="linea1 num"><span>${day(s.at)} · ${esc(b?.rules.name ?? '')} · ${esc(s.category)}</span><span>proposal #${s.proposal_id}</span></div>
+        <div class="linea1 num"><span>${esc(b?.rules.name ?? '')}, ${esc(s.category)}, ${day(s.at)}</span><span>proposal #${s.proposal_id}</span></div>
         <span class="monto-v num">${usd(dollars(s.amount))}</span>
         <p>${esc(s.memo)}</p>
-        <p class="motivo num">${esc(s.reason || 'Outside the rules')} · to ${esc(s.receiver_id)}</p>
+        <p class="motivo num">${esc(s.reason || 'Outside the rules')}. To ${esc(s.receiver_id)}.</p>
         <div class="llaves num" aria-label="${cs.approvals} of ${needed()} votes">${keys}<span>${cs.approvals} of ${needed()} votes${cs.rejections ? `, ${cs.rejections} against` : ''}</span></div>
         <div class="acciones"><button class="btn" data-v="fuera" type="button" data-voto="si">Approve</button><button class="btn no" type="button" data-voto="no">Reject</button></div>
       </article>`;
@@ -302,6 +307,14 @@ $('votos').addEventListener('click', async (e) => {
   try {
     const r = await post('/api/vote', { proposalId: Number(card.dataset.p), approve });
     const status = r.proposal.status;
+    const yes = Object.values(r.proposal.votes || {}).filter((v) => v === 'Approve').length;
+    card.querySelectorAll('.llave').forEach((k, j) => k.classList.toggle('puesta', j < yes));
+    card.querySelector('.llaves span:last-child').textContent = `${yes} of ${needed()} votes`;
+    if (status !== 'InProgress') {
+      const n = Math.max(0, Number($('badge').textContent) - 1);
+      $('badge').textContent = n;
+      $('badge').hidden = n === 0;
+    }
     if (status === 'Approved') play('paid');
     const msg = status === 'Approved' ? 'Approved. The payment went out from the DAO.'
       : status === 'Rejected' ? 'Rejected. The money stays in the DAO.'
@@ -349,7 +362,9 @@ function paintChannel() {
   const shown = all.slice(-MAX_CHANNEL);
   const ol = $('gotas');
   $('canal-t').textContent = `${b.rules.name} payments this period`;
-  $('canal-gasto').textContent = `${usd(p.spent)} out of ${usd(p.cap)} · ${usd(Math.max(0, p.cap - p.spent))} left` + (all.length > shown.length ? ` · last ${shown.length} of ${all.length}` : '');
+  const noVote = all.filter((s) => s.status === 'Paid').length;
+  const toCouncil = all.length - noVote;
+  $('canal-gasto').innerHTML = `<span class="sello"><i class="ph-light ph-check-circle"></i>${noVote} paid with no council vote</span><span class="sello espera"><i class="ph-light ph-lock-key"></i>${toCouncil} sent to the council</span>` + (all.length > shown.length ? `<span>Showing the last ${shown.length} of ${all.length}</span>` : '');
   if (shown.length === 0) {
     ol.style.setProperty('--n', 1);
     ol.classList.add('sin-gotas');
@@ -361,19 +376,19 @@ function paintChannel() {
   ol.innerHTML = shown.map((s, k) => {
     const tx = txOf(s.id);
     const txLink = tx
-      ? `<a href="${EXPLORER}/txns/${tx}" target="_blank" rel="noopener" aria-label="Transaction for payment ${s.id}">tx<i class="ph-light ph-arrow-square-out"></i></a>`
-      : `<a href="${EXPLORER}/address/${s.receiver_id}" target="_blank" rel="noopener" aria-label="Receiver account ${esc(s.receiver_id)}">account<i class="ph-light ph-arrow-square-out"></i></a>`;
+      ? `<a href="${EXPLORER}/txns/${tx}" target="_blank" rel="noopener" aria-label="Transaction for payment ${s.id}, DAO proposal ${s.proposal_id}">#${s.proposal_id}<i class="ph-light ph-arrow-square-out"></i></a>`
+      : `<a href="${EXPLORER}/address/${s.receiver_id}" target="_blank" rel="noopener" aria-label="Receiver account ${esc(s.receiver_id)}, DAO proposal ${s.proposal_id}">#${s.proposal_id}<i class="ph-light ph-arrow-square-out"></i></a>`;
     let state;
     let waiting = false;
-    if (s.status === 'Paid') state = `<i class="ph-light ph-check-circle"></i>Paid inside the rules · #${s.proposal_id}`;
+    if (s.status === 'Paid') state = '<i class="ph-light ph-check-circle"></i>Paid inside the rules';
     else {
       const cs = councilState(s);
-      if (cs.status === 'Approved') state = `<i class="ph-light ph-check-circle"></i>Paid after council vote · #${s.proposal_id}`;
-      else if (cs.status === 'Rejected') state = `<i class="ph-light ph-x-circle"></i>Council said no · #${s.proposal_id}`;
-      else { waiting = true; state = `<i class="ph-light ph-hourglass-medium"></i>Council vote, ${cs.approvals} of ${needed()} · #${s.proposal_id}`; }
+      if (cs.status === 'Approved') state = '<i class="ph-light ph-check-circle"></i>Paid after council vote';
+      else if (cs.status === 'Rejected') state = '<i class="ph-light ph-x-circle"></i>Council said no';
+      else { waiting = true; state = `<i class="ph-light ph-hourglass-medium"></i>Council vote, ${cs.approvals} of ${needed()}`; }
     }
     return `<li class="gota ${waiting ? 'espera' : ''}" style="--k:${Math.min(k, 7)}"><span class="tramo" aria-hidden="true"></span>
-      <span class="f num"><i class="ph-light ${waiting ? 'ph-lock-key' : 'ph-drop'}"></i>${day(s.at)} · ${esc(s.category)}</span>
+      <span class="f num"><span>${day(s.at)}</span><span class="cat"><i class="ph-light ${CAT_ICON[s.category] || 'ph-tag'}"></i>${esc(s.category)}</span></span>
       <span class="v num">${usd(dollars(s.amount))}</span>
       <span class="q" title="${esc(s.memo)}">${esc(s.memo)}</span>
       <span class="e num">${state}${txLink}</span>
@@ -416,9 +431,19 @@ async function start() {
     $('informe').disabled = false;
   } catch {
     app.dataset.estado = 'fallo';
+    $('fallo').innerHTML = '<p><i class="ph-light ph-cloud-slash"></i><span>NEAR testnet did not answer, so there is nothing to show yet.</span></p><button class="btn-sec" type="button" id="reintentar"><i class="ph-light ph-arrow-clockwise"></i>Try again</button>';
+    $('reintentar').addEventListener('click', start);
     $('fallo').hidden = false;
   }
 }
-$('reintentar').addEventListener('click', start);
+$('ir-pedir').addEventListener('click', () => {
+  tab('pedir');
+  document.querySelector('.panel').scrollIntoView({ behavior: reduced ? 'auto' : 'smooth', block: 'start' });
+  setTimeout(() => $('f-monto').focus({ preventScroll: true }), reduced ? 0 : 400);
+});
+if ('IntersectionObserver' in window) {
+  new IntersectionObserver(([e]) => { $('ir-pedir').dataset.oculto = e.isIntersecting ? 'si' : 'no'; }, { threshold: 0.15 })
+    .observe(document.querySelector('.panel'));
+}
 start();
 addEventListener('load', () => { leader(); setTimeout(leader, 700); });

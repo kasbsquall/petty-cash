@@ -21,8 +21,8 @@
     </div>
     <span class="sep" aria-hidden="true"></span>
     <div class="comunidad">
-      <h1>Harbor Builders <span class="rotulo">demo community</span></h1>
-      <a class="dao" id="dao-link" target="_blank" rel="noopener">harbor-builders.sputnikv2.testnet</a>
+      <h1>Harbor Builders</h1>
+      <span class="dao-linea"><span class="rotulo">demo community</span><a class="dao" id="dao-link" target="_blank" rel="noopener">harbor-builders.sputnikv2.testnet</a></span>
     </div>
     <div class="dcha">
       <span class="demo" id="demo-quien"><i class="ph-light ph-user-circle"></i><span>You act as the budget holder</span></span>
@@ -32,6 +32,7 @@
   </header>
 
   <p class="mecanismo">Inside a budget's rules, a payment leaves the DAO in seconds. Anything else becomes a normal council vote. <b>The money stays in the DAO until a payment goes out.</b></p>
+  <p class="sr">This page reads live data from NEAR testnet: the demo DAO harbor-builders.sputnikv2.testnet, its three budgets on the Petty Cash contract pettycash.testnet, every payment and every council vote. You act as a budget holder: request a payment, and inside the rules it is paid from the DAO in seconds; outside the rules it goes to a council vote, which you can also cast as a demo council member.</p>
 
   <div class="escena" id="escena">
     <div class="stage" id="stage">
@@ -40,7 +41,7 @@
 
       <div class="embalse" style="--i:0">
         <strong><i class="ph-light ph-drop"></i><span id="embalse-saldo"><span class="esqueleto" style="width:9ch"></span></span></strong>
-        <span>The DAO's money. It stays here until a payment goes out.</span>
+        <span>It stays here until a payment goes out.</span>
       </div>
 
       <div class="pin" id="pin-0" style="--i:1"><span class="tallo"></span><span class="halo"></span><span class="punto"></span>
@@ -97,11 +98,11 @@
         </label>
         <label>Receiver
           <select class="campo" id="f-recibe">
-            <option value="harbor-venue.testnet">Harbor venue · harbor-venue.testnet</option>
-            <option value="harbor-print.testnet">Print shop · harbor-print.testnet</option>
-            <option value="harbor-studio.testnet">Design studio · harbor-studio.testnet</option>
-            <option value="harbor-compute.testnet">Compute provider · harbor-compute.testnet</option>
-            <option value="harbor-ana.testnet">Ana, as a reimbursement · harbor-ana.testnet</option>
+            <option value="harbor-venue.testnet">Harbor venue (harbor-venue.testnet)</option>
+            <option value="harbor-print.testnet">Print shop (harbor-print.testnet)</option>
+            <option value="harbor-studio.testnet">Design studio (harbor-studio.testnet)</option>
+            <option value="harbor-compute.testnet">Compute provider (harbor-compute.testnet)</option>
+            <option value="harbor-ana.testnet">Ana, as a reimbursement (harbor-ana.testnet)</option>
           </select>
           <span class="ayuda">Demo receivers only. With your own DAO, any NEAR account.</span>
         </label>
@@ -113,7 +114,7 @@
 
         <button class="btn" id="enviar" type="submit" data-v="vacio" disabled><span id="enviar-txt">Request payment</span></button>
         <div id="resultado" aria-live="polite"></div>
-        <span class="ayuda">Real transactions on NEAR testnet. Amounts in tUSD, test dollars with no value.</span>
+        <span class="ayuda">Every request sends a real transaction on NEAR testnet.</span>
       </form>
     </div>
 
@@ -133,10 +134,8 @@
     <ol class="gotas" id="gotas"></ol>
   </section>
 
-  <div class="fallo" id="fallo" hidden role="alert">
-    <p><i class="ph-light ph-cloud-slash"></i><span>NEAR testnet did not answer, so there is nothing to show yet.</span></p>
-    <button class="btn-sec" type="button" id="reintentar"><i class="ph-light ph-arrow-clockwise"></i>Try again</button>
-  </div>
+  <div class="fallo" id="fallo" hidden role="alert"></div>
+  <button class="ir-pedir" type="button" id="ir-pedir"><i class="ph-light ph-hand-coins"></i>Request a payment</button>
 </div>
 <script type="module" src="/src/main.js"></script>
 </body>
